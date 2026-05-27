@@ -1,9 +1,7 @@
 {
     description = "Pi - Your minimal agent harness";
 
-    inputs = {
-        nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
-    };
+    inputs.nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
 
     outputs = { self, nixpkgs }: let
         systems = [
@@ -27,35 +25,11 @@
                 default = self.packages.${system}.pi-coding-agent;
             }
         );
+        
+        nixosModules.default = import ./module.nix;
 
-        apps = forEachSystem (
-            { pkgs, system }:
-            {
-                pi-coding-agent = {
-                    type = "app";
-                    program = "${self.packages.${system}.pi-coding-agent}/bin/pi";
-                };
-                default = self.apps.${system}.pi-coding-agent;
-            }
-        );
-
-        devShells = forEachSystem (
-            { pkgs, system }:
-            {
-                default = pkgs.mkShell {
-                    buildInputs = with pkgs; [
-                        self.packages.${system}.pi-coding-agent
-                    ];
-                };
-            }
-        );
-
-        checks = forEachSystem (
-            { pkgs, system }:
-            {
-                pi-coding-agent = self.packages.${system}.pi-coding-agent;
-                pi-version = self.packages.${system}.pi-coding-agent.passthru.tests.version;
-            }
-        );
+        overlays.default = final: _: {
+            pi = final.callPackage ./package.nix {};
+        };
     };
 }
