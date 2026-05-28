@@ -40,7 +40,7 @@ let
 
         buildPhase = ''
             runHook preBuild
-            bun install --ignore-scripts --no-progress
+            bun install --ignore-scripts --no-progress --linker hoisted
             runHook postBuild
         '';
 
@@ -55,10 +55,10 @@ let
 
         outputHashMode = "recursive";
         outputHashAlgo = "sha256";
-        outputHash = "sha256-q0OixtpP/ZyENCUCjSbxXEWd9pCcbVQ92f8LpplJp4M=";
+        outputHash = "sha256-UoQ3SwJZvmJ1tvodAQnWFWgNvr3Mz5YgjwvrYZ0/0Pc=";
     };
 in stdenvNoCC.mkDerivation (finalAttrs: {
-    pname = "pi";
+    pname = "pi-coding-agent";
     inherit version src;
 
     nativeBuildInputs = [
@@ -75,6 +75,11 @@ in stdenvNoCC.mkDerivation (finalAttrs: {
 
     buildPhase = ''
         runHook preBuild
+        bun run --cwd packages/tui build
+        bun run --cwd packages/ai build
+        bun run --cwd packages/agent build
+        bun run --cwd packages/coding-agent build
+
         bun build \
             --compile \
             --target=${bunTarget.${stdenvNoCC.hostPlatform.system}} \
@@ -88,37 +93,25 @@ in stdenvNoCC.mkDerivation (finalAttrs: {
     installPhase = ''
         runHook preInstall
 
-        mkdir -p $out/lib/pi/assets
-        mkdir -p $out/lib/pi/export-html/vendor
-        mkdir -p $out/lib/pi/theme
-        mkdir -p $out/lib/pi/docs
-        mkdir -p $out/lib/pi/examples
+        mkdir -p $out/lib/pi $out/bin
 
-        cp pi $out/lib/pi/pi
-        chmod +x $out/lib/pi/pi
+        install -Dm755 pi $out/lib/pi/pi
 
-        cp node_modules/@silvia-odwyer/photon-node/photon_rs_bg.wasm $out/lib/pi/
         cd packages/coding-agent
+
         cp package.json $out/lib/pi/
 
-        cp src/modes/interactive/assets/*.png \
-            $out/lib/pi/assets/
-        cp src/core/export-html/template.* \
-            $out/lib/pi/export-html/
-        cp src/core/export-html/vendor/*.js \
-            $out/lib/pi/export-html/vendor/
-        cp src/modes/interactive/theme/*.json \
-            $out/lib/pi/theme/
-        cp -r docs/* $out/lib/pi/docs/
-        cp -r examples/* $out/lib/pi/examples/
-        cp README.md CHANGELOG.md $out/lib/pi/
+        cp node_modules/@silvia-odwyer/photon-node/photon_rs_bg.wasm $out/lib/pi/
 
-        mkdir -p $out/bin
+        cp src/modes/interactive/assets/*.png $out/lib/pi/assets/
+        cp src/modes/interactive/theme/*.json $out/lib/pi/theme/
+
+        cp src/core/export-html/template.* $out/lib/pi/export-html/
+        cp src/core/export-html/vendor/*.js $out/lib/pi/export-html/vendor/
+
         makeWrapper $out/lib/pi/pi $out/bin/pi \
             --set-default PI_DATA_DIR "$HOME/.local/share/pi" \
             --set-default PI_PACKAGE_DIR "$out/lib/pi" \
-            --set SSL_CERT_FILE "${cacert}/etc/ssl/certs/ca-bundle.crt" \
-            --set NODE_EXTRA_CA_CERTS "${cacert}/etc/ssl/certs/ca-bundle.crt"
 
         runHook postInstall
     '';
@@ -144,5 +137,6 @@ in stdenvNoCC.mkDerivation (finalAttrs: {
         license     = lib.licenses.mit;
         mainProgram = "pi";
         platforms   = lib.platforms.unix;
+        maintainers = "oslamelon";
     };
 })
