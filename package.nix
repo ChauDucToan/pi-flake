@@ -2,7 +2,6 @@
 , stdenv
 , stdenvNoCC
 , bun
-, cacert
 , fetchFromGitHub
 , makeWrapper
 , writableTmpDirAsHomeHook
@@ -70,21 +69,21 @@ in stdenvNoCC.mkDerivation (finalAttrs: {
     configurePhase = ''
         runHook preConfigure
         cp -R ${node_modules}/node_modules .
+        tsgo_real=$(readlink -f node_modules/.bin/tsgo)
+        echo "==> tsgo real path: $tsgo_real"
+        echo "==> tsgo file type: $(file $tsgo_real)"
+        echo "==> tsgo first line: $(head -1 $tsgo_real)"
         runHook postConfigure
     '';
 
     buildPhase = ''
         runHook preBuild
-        bun run --cwd packages/tui build
-        bun run --cwd packages/ai build
-        bun run --cwd packages/agent build
-        bun run --cwd packages/coding-agent build
-
         bun build \
             --compile \
             --target=${bunTarget.${stdenvNoCC.hostPlatform.system}} \
             --outfile=pi \
-            ./packages/coding-agent/src/cli.ts
+            ./packages/coding-agent/src/cli.ts \
+            ./packages/coding-agent/src/utils/image-resize-worker.ts
         runHook postBuild
     '';
 
@@ -96,18 +95,14 @@ in stdenvNoCC.mkDerivation (finalAttrs: {
         mkdir -p $out/lib/pi $out/bin
 
         install -Dm755 pi $out/lib/pi/pi
-
-        cd packages/coding-agent
-
-        cp package.json $out/lib/pi/
-
         cp node_modules/@silvia-odwyer/photon-node/photon_rs_bg.wasm $out/lib/pi/
 
-        cp src/modes/interactive/assets/*.png $out/lib/pi/assets/
-        cp src/modes/interactive/theme/*.json $out/lib/pi/theme/
-
-        cp src/core/export-html/template.* $out/lib/pi/export-html/
-        cp src/core/export-html/vendor/*.js $out/lib/pi/export-html/vendor/
+        cd packages/coding-agent
+        install -Dm644 -t $out/lib/pi/ package.json
+        install -Dm644 -t $out/lib/pi/assets/ src/modes/interactive/assets/*.png
+        install -Dm644 -t $out/lib/pi/theme/ src/modes/interactive/theme/*.json
+        install -Dm644 -t $out/lib/pi/export-html/ src/core/export-html/template.*
+        install -Dm644 -t $out/lib/pi/export-html/vendor/ src/core/export-html/vendor/*.js
 
         makeWrapper $out/lib/pi/pi $out/bin/pi \
             --set-default PI_DATA_DIR "$HOME/.local/share/pi" \
