@@ -36,7 +36,7 @@ let
       local uname="$4"
       local gname="$5"
       if [ -f "$target_file" ]; then
-        if ! diff -q "$target_file" "$source_file" > /dev/null; then
+        if ! diff -Bw "$target_file" "$source_file" > /dev/null; then
           echo "[NIX PROTECTED ERROR]: Found inconsistency in the content of '$target_file' ($label)" >&2
           echo "Make sure that you already backup before rebuild hoặc cập nhật lại code Nix!" >&2
           exit 1
