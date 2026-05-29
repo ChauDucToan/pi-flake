@@ -69,10 +69,6 @@ in stdenvNoCC.mkDerivation (finalAttrs: {
     configurePhase = ''
         runHook preConfigure
         cp -R ${node_modules}/node_modules .
-        tsgo_real=$(readlink -f node_modules/.bin/tsgo)
-        echo "==> tsgo real path: $tsgo_real"
-        echo "==> tsgo file type: $(file $tsgo_real)"
-        echo "==> tsgo first line: $(head -1 $tsgo_real)"
         runHook postConfigure
     '';
 
