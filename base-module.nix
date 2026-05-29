@@ -63,7 +63,7 @@ let
 
       ${concatMapStringsSep "\n" (ext: ''
         echo "[Pi Module] installing extension: ${ext}..."
-        ${piPackage}/bin/pi install ${ext} || echo "Error: Can not install ${ext}"
+        ${piPackage}/bin/pi install '${ext}' 2>&1
       '') cfg.extensions}
     '' else ''
       # NIXOS LOGIC
@@ -76,8 +76,8 @@ let
           
           installExtensionCmds = concatMapStringsSep "\n" (ext: ''
             echo "[Pi Module] installing extension: ${ext} for user ${username}..."
-            runuser -l ${username} -c "export HOME=${homeDir}; ${piPackage}/bin/pi install ${ext}" || echo "Error: Can not install ${ext}"
-          '') cfg.extensions;
+            runuser -l ${username} -c "export HOME=${homeDir}; ${piPackage}/bin/pi install '${ext}' 2>&1
+"           '') cfg.extensions;
         in ''
           mkdir -p "${homeDir}/.pi/agent"
           chown ${username}:${userConfig.group} "${homeDir}/.pi/agent"
@@ -86,10 +86,10 @@ let
             check_and_sync "${modelsFile}" "${modelsJson}" "models" "${username}" "${userConfig.group}"
             check_and_sync "${keybindingsFile}" "${keybindingsJson}" "keybindings" "${username}" "${userConfig.group}"
           else
-            ln -sf ${modelsJson} "${modelsFile}"
+            ln -sf "${modelsJson}" "${modelsFile}"
             chown -h ${username}:${userConfig.group} "${modelsFile}"
 
-            ln -sf ${keybindingsJson} "${keybindingsFile}"
+            ln -sf "${keybindingsJson}" "${keybindingsFile}"
             chown -h ${username}:${userConfig.group} "${keybindingsFile}"
           fi
           ${installExtensionCmds}
