@@ -1,1 +1,1 @@
-import ./generic.nix "nixos"
+import ./base-module.nix "nixos"

@@ -1,1 +1,1 @@
-import ./generic.nix "home-manager"
+import ./base-module.nix "home-manager"
