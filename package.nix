@@ -7,6 +7,7 @@
 , writableTmpDirAsHomeHook
 , testers
 , nix-update-script
+, nodejs
 }:
 
 let
@@ -103,6 +104,7 @@ in stdenvNoCC.mkDerivation (finalAttrs: {
         makeWrapper $out/lib/pi/pi $out/bin/pi \
             --set-default PI_DATA_DIR "$HOME/.local/share/pi" \
             --set-default PI_PACKAGE_DIR "$out/lib/pi" \
+            --prefix PATH : ${lib.makeBinPath [ nodejs ]} \
 
         runHook postInstall
     '';
