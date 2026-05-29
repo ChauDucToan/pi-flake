@@ -28,6 +28,8 @@
         
         nixosModules.default = import ./module.nix;
 
+        homeManagerModules.default = import ./hm-module.nix;
+
         overlays.default = final: _: {
             pi = final.callPackage ./package.nix {};
         };
