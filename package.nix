@@ -17,13 +17,13 @@ let
         "x86_64-linux"   = "bun-linux-x64";
     };
 
-    version = "0.75.5";
+    version = "0.77.0";
 
     src = fetchFromGitHub {
         owner = "earendil-works";
         repo  = "pi";
         rev   = "v${version}";
-        hash  = "sha256-RNQ4ospdohOA8hyegCMziJHHbmFGdk/QtkjzJmS/PZc=";
+        hash  = "sha256-PJyhLWfqoPjHoYl4pKJVD3uMD5YjQB5YIk5mBZvGi8E=";
     };
 
     node_modules = stdenvNoCC.mkDerivation {
@@ -54,7 +54,7 @@ let
 
         outputHashMode = "recursive";
         outputHashAlgo = "sha256";
-        outputHash = "sha256-UoQ3SwJZvmJ1tvodAQnWFWgNvr3Mz5YgjwvrYZ0/0Pc=";
+        outputHash = "sha256-rqJfSnHJnP9AXFwimGF0VyMmvjlg3GLkovjZpDvQNog=";
     };
 in stdenvNoCC.mkDerivation (finalAttrs: {
     pname = "pi-coding-agent";
