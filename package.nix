@@ -55,7 +55,7 @@ let
 
         outputHashMode = "recursive";
         outputHashAlgo = "sha256";
-        outputHash = "sha256-rqJfSnHJnP9AXFwimGF0VyMmvjlg3GLkovjZpDvQNog=";
+        outputHash = "sha256-R12QZOOrbLh40DBD8Tc34wJZLLPZvPtCLbEJBwB90HQ=";
     };
 in stdenvNoCC.mkDerivation (finalAttrs: {
     pname = "pi-coding-agent";
