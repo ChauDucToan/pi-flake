@@ -44,7 +44,10 @@ jobs:
 
   build:
     name: Build (${{ matrix.system }})
-    if: github.event_name != 'workflow_dispatch'
+    needs: update-node
+    if: |
+      (github.event_name != 'workflow_dispatch') ||
+      (github.event_name == 'workflow_dispatch' && needs.update-node.result == 'success')
     strategy:
       fail-fast: false
       matrix:
@@ -65,6 +68,8 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('chore/bump-pi-{0}', inputs.version) || '' }}
 
       - uses: DeterminateSystems/nix-installer-action@v14
 
