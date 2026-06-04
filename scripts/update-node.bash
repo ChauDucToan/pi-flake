@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+PACKAGE_FILE="package-src.nix"
 DUMMY_HASH="sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 
 extract_hash_from_error() {
@@ -12,11 +13,11 @@ update_node_hash() {
   local old_hash="$1"
   local new_hash="$2"
   echo "Updating ${old_hash} to ${new_hash}"
-  sed -i "s|outputHash = \"${old_hash}\"|outputHash = \"${new_hash}\"|" package.nix
+  sed -i "s|outputHash = \"${old_hash}\"|outputHash = \"${new_hash}\"|" "$PACKAGE_FILE"
 }
 
 get_current_node_hash() {
-  grep -oP 'outputHash = "\Ksha256-[A-Za-z0-9+/]+=' package.nix
+  grep -oP 'outputHash = "\Ksha256-[A-Za-z0-9+/]+=' "$PACKAGE_FILE"
 }
 
 update_node_modules() {

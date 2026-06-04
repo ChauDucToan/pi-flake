@@ -2,23 +2,31 @@
 set -euo pipefail
 
 PACKAGE_FILE="package.nix"
-SYSTEMS=(
-  "x86_64-linux"
-  "aarch64-linux"
-  "x86_64-darwin"
-  "aarch64-darwin"
+BASE_URL="https://github.com/earendil-works/pi/releases/download/v"
+
+# Nix system -> upstream tarball filename.
+# Must match the `url = "..."` entries in package.nix exactly.
+declare -A TARBALLS=(
+  ["x86_64-linux"]="pi-linux-x64.tar.gz"
+  ["aarch64-linux"]="pi-linux-arm64.tar.gz"
+  ["x86_64-darwin"]="pi-darwin-x64.tar.gz"
+  ["aarch64-darwin"]="pi-darwin-arm64.tar.gz"
 )
-BASE_URL="https://github.com/ChauDucToan/pi-flake/releases/download/v"
 
 prefetch_src_hash() {
   local url="$1"
-  nix-prefetch-url --type sha256 "$url"
+  # nix-prefetch-url prints the bare nixbase32 hash; convert to SRI form
+  # so the output matches the `hash = "sha256-..."` style in package.nix.
+  local raw
+  raw=$(nix-prefetch-url --type sha256 "$url")
+  nix hash convert --to sri --hash-algo sha256 "$raw"
 }
 
 update_hash_for_system() {
   local system="$1"
-  local new_hash="$2"
-  local url_pattern="pi-${system}.tar.gz"
+  local tarball="$2"
+  local new_hash="$3"
+  local url_pattern="$tarball"
 
   # URL line for this system must be unique
   local match_count
@@ -51,12 +59,13 @@ main() {
 
   echo "Prefetching src hashes for version ${version}..."
 
-  for system in "${SYSTEMS[@]}"; do
-    local url="${base_url}/pi-${system}.tar.gz"
+  for system in "${!TARBALLS[@]}"; do
+    local tarball="${TARBALLS[$system]}"
+    local url="${base_url}/${tarball}"
     echo "Fetching: $url"
     local new_hash
     new_hash=$(prefetch_src_hash "$url")
-    update_hash_for_system "$system" "$new_hash"
+    update_hash_for_system "$system" "$tarball" "$new_hash"
   done
 
   echo "Done!"
