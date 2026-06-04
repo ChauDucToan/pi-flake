@@ -7,8 +7,41 @@ on:
     tags-ignore:
       - '**'
   pull_request:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'pi-coding-agent version (vd: v0.78.0)'
+        required: true
+        type: string
 
 jobs:
+  update-node:
+    name: Update pi-coding-agent version
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@v14
+
+      - uses: DeterminateSystems/magic-nix-cache-action@v8
+        with:
+          use-flakehub: false
+
+      - name: Run update-node
+        run: bash scripts/update-node.bash "${{ inputs.version }}"
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          title: 'chore: bump pi-coding-agent to ${{ inputs.version }}'
+          commit-message: 'chore: bump pi-coding-agent to ${{ inputs.version }}'
+          branch: chore/bump-pi-${{ inputs.version }}
+          push-to-fork: ${{ secrets.PUSH_TO_FORK }}
+
   build:
     name: Build (${{ matrix.system }})
     strategy:
@@ -35,25 +68,27 @@ jobs:
       - uses: DeterminateSystems/nix-installer-action@v14
 
       - uses: DeterminateSystems/magic-nix-cache-action@v8
+        with:
+          use-flakehub: false
 
       - name: Build
-        run: nix build .#pi-coding-agent -L
+        run: nix build .#pi-coding-agent-src -L
 
       - name: Verify binary runs
         run: |
-          result=$(nix build .#pi-coding-agent --no-link --print-out-paths)
+          result=$(nix build .#pi-coding-agent-src --no-link --print-out-paths)
           HOME=$(mktemp -d) $result/bin/pi --version
 
       - name: tarball packaging (dry run)
         run: |
-          tar -czf pi-${{ matrix.artifact }}.tar.gz -C result/lib pi
+          tar -czf ${{ matrix.artifact }}.tar.gz -C result/lib pi
           echo "=== tarball content ==="
-          tar -tzf pi-${{ matrix.artifact }}.tar.gz
+          tar -tzf ${{ matrix.artifact }}.tar.gz
           echo "=== SHA256 ==="
-          sha256sum pi-${{ matrix.artifact }}.tar.gz
+          sha256sum ${{ matrix.artifact }}.tar.gz
 
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: pi-${{ matrix.artifact }}.tar.gz
+          path: ${{ matrix.artifact }}.tar.gz
           retention-days: 3

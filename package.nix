@@ -2,110 +2,57 @@
   lib,
   stdenv,
   stdenvNoCC,
-  bun,
-  fetchFromGitHub,
   makeWrapper,
-  writableTmpDirAsHomeHook,
-  testers,
-  nix-update-script,
+  fetchurl,
   nodejs,
 }:
-let
-  bunTarget = {
-    "aarch64-darwin" = "bun-darwin-arm64";
-    "aarch64-linux" = "bun-linux-arm64";
-    "x86_64-darwin" = "bun-darwin-x64";
-    "x86_64-linux" = "bun-linux-x64";
-  };
 
+let
   version = "0.78.0";
 
-  src = fetchFromGitHub {
-    owner = "earendil-works";
-    repo = "pi";
-    rev = "v${version}";
-    hash = "sha256-Cw+W5w6yuL+cH+JfgCbEwiyeXloMb7yFd46TXJPZGTg=";
+  srcs = {
+    "x86_64-linux" = {
+      url = "https://github.com/ChauDucToan/pi-flake/releases/download/v${version}/pi-x86_64-linux.tar.gz";
+      hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+    };
+    "aarch64-linux" = {
+      url = "https://github.com/ChauDucToan/pi-flake/releases/download/v${version}/pi-aarch64-linux.tar.gz";
+      hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+    };
+    "x86_64-darwin" = {
+      url = "https://github.com/ChauDucToan/pi-flake/releases/download/v${version}/pi-x86_64-darwin.tar.gz";
+      hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+    };
+    "aarch64-darwin" = {
+      url = "https://github.com/ChauDucToan/pi-flake/releases/download/v${version}/pi-aarch64-darwin.tar.gz";
+      hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+    };
   };
 
-  node_modules = stdenvNoCC.mkDerivation {
-    pname = "pi-node_modules";
-    inherit version src;
-
-    nativeBuildInputs = [
-      bun
-      writableTmpDirAsHomeHook
-    ];
-
-    dontConfigure = true;
-
-    buildPhase = ''
-      runHook preBuild
-      bun install --ignore-scripts --no-progress --linker hoisted
-      runHook postBuild
-    '';
-
-    installPhase = ''
-      runHook preInstall
-      mkdir -p $out
-      cp -R node_modules $out/
-      runHook postInstall
-    '';
-
-    dontFixup = true;
-
-    outputHashMode = "recursive";
-    outputHashAlgo = "sha256";
-    outputHash = "sha256-l5XGj5UZVtfoDEjL5aYhY5Z8+UzNZdhJQrr7ZoQLyp8=";
-  };
+  system = stdenvNoCC.hostPlatform.system;
 in
-stdenvNoCC.mkDerivation (finalAttrs: {
+stdenvNoCC.mkDerivation {
   pname = "pi-coding-agent";
-  inherit version src;
+  inherit version;
 
-  nativeBuildInputs = [
-    bun
-    makeWrapper
-    writableTmpDirAsHomeHook
-  ];
+  src = fetchurl srcs.${system};
 
-  configurePhase = ''
-    runHook preConfigure
-    cp -R ${node_modules}/node_modules .
-    runHook postConfigure
-  '';
+  nativeBuildInputs = [ makeWrapper ];
 
-  buildPhase = ''
-    runHook preBuild
-    bun build \
-      --compile \
-      --target=${bunTarget.${stdenvNoCC.hostPlatform.system}} \
-      --outfile=pi \
-      ./packages/coding-agent/src/cli.ts \
-      ./packages/coding-agent/src/utils/image-resize-worker.ts
-    runHook postBuild
-  '';
-
-  dontStrip = true;
+  dontConfigure = true;
+  dontBuild = true;
 
   installPhase = ''
     runHook preInstall
 
     mkdir -p $out/lib/pi $out/bin
-
-    install -Dm755 pi $out/lib/pi/pi
-    cp node_modules/@silvia-odwyer/photon-node/photon_rs_bg.wasm $out/lib/pi/
-
-    cd packages/coding-agent
-    install -Dm644 -t $out/lib/pi/ package.json
-    install -Dm644 -t $out/lib/pi/assets/ src/modes/interactive/assets/*.png
-    install -Dm644 -t $out/lib/pi/theme/ src/modes/interactive/theme/*.json
-    install -Dm644 -t $out/lib/pi/export-html/ src/core/export-html/template.*
-    install -Dm644 -t $out/lib/pi/export-html/vendor/ src/core/export-html/vendor/*.js
+    cp -r . $out/lib/pi/
+    chmod +x $out/lib/pi/pi
 
     makeWrapper $out/lib/pi/pi $out/bin/pi \
       --set-default PI_DATA_DIR "$HOME/.local/share/pi" \
       --set-default PI_PACKAGE_DIR "$out/lib/pi" \
-      --prefix PATH : ${lib.makeBinPath [ nodejs ]} \
+      --prefix PATH : ${lib.makeBinPath [ nodejs ]}
 
     runHook postInstall
   '';
@@ -115,26 +62,11 @@ stdenvNoCC.mkDerivation (finalAttrs: {
       --prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath [ stdenv.cc.cc.lib ]}
   '';
 
-  passthru = {
-    tests = {
-      version = testers.testVersion {
-        package = finalAttrs.finalPackage;
-        command = "HOME=$(mktemp -d) $out/bin/pi --version";
-      };
-    };
-    updateScript = nix-update-script {
-      extraArgs = [
-        "--subpackage"
-        "node_modules"
-      ];
-    };
-  };
-
   meta = {
-    description = "Terminal-based AI coding agent";
+    description = "Terminal-based AI coding agent (pre-built)";
     homepage = "https://github.com/earendil-works/pi";
     license = lib.licenses.mit;
     mainProgram = "pi";
     platforms = lib.platforms.unix;
   };
-})
+}

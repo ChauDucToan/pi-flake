@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DUMMY_HASH="sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="  # thay lib.fakeHash
+DUMMY_HASH="sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 
 extract_hash_from_error() {
   local error_output="$1"
@@ -33,7 +33,7 @@ update_node_modules() {
 
   if [[ -z "$new_hash" ]]; then
     echo "Can not get new hash. Build output:"
-    echo "$err_output"  # fix typo: err_output không phải error_output
+    echo "$err_output"
     update_node_hash "$DUMMY_HASH" "$curr_hash"
     exit 1
   fi
@@ -44,8 +44,12 @@ update_node_modules() {
 
 main() {
   local version="${1:?Usage: $0 <version>}"
-  nix run nixpkgs#nix-update -- pi-coding-agent --version "$version" --flake
-  update_node_modules
+  nix run nixpkgs#nix-update -- pi-coding-agent-src --version "$version" --flake
+
+  if ! nix build .#pi-coding-agent-src 2>/dev/null; then
+    echo "nix-update doesn't fixing node_modules, using manual fix:"
+    update_node_modules
+  fi
   echo "Done!"
 }
 
