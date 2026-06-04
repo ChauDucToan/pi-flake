@@ -17,7 +17,12 @@ update_node_hash() {
 }
 
 get_current_node_hash() {
-  grep -oP 'outputHash = "\Ksha256-[A-Za-z0-9+/]+=' "$PACKAGE_FILE"
+  # Match only the `outputHash` line that follows `outputHashMode = "recursive"`
+  # — that's unique to the `node_modules` fixed-output derivation. A bare
+  # `outputHash = "..."` grep can pick up the wrong line if anything else in
+  # the file ever gains one.
+  sed -n '/outputHashMode = "recursive"/,/^    };/p' "$PACKAGE_FILE" \
+    | grep -oP 'outputHash = "\Ksha256-[A-Za-z0-9+/]+='
 }
 
 update_node_modules() {
@@ -27,7 +32,7 @@ update_node_modules() {
   update_node_hash "$curr_hash" "$DUMMY_HASH"
 
   local err_output
-  err_output=$(nix build .#pi-coding-agent 2>&1 || true)
+  err_output=$(nix build .#pi-coding-agent-src 2>&1 || true)
 
   local new_hash
   new_hash=$(extract_hash_from_error "$err_output")
