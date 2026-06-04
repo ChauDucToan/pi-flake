@@ -1,0 +1,114 @@
+name: update-pi
+
+# Keeps package.nix and package-src.nix in sync with upstream pi releases.
+# - schedule: daily check for new earendil-works/pi releases
+# - workflow_dispatch: manual trigger; pass `version` (e.g. v0.78.0) to override,
+#   leave empty to use the latest upstream release.
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Pin to a specific tag (e.g. v0.78.0). Empty = latest upstream release."
+        required: false
+        type: string
+
+concurrency:
+  group: update-pi
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      # Optional: pull from a personal Cachix cache if CACHIX_AUTH_TOKEN + CACHIX_CACHE
+      # are configured as repo secrets/vars. Skip silently otherwise.
+      - name: Configure Cachix (optional)
+        if: vars.CACHIX_CACHE != ''
+        uses: cachix/cachix-action@v15
+        with:
+          name: ${{ vars.CACHIX_CACHE }}
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+      - name: Resolve target version
+        id: ver
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$INPUT_VERSION" ]]; then
+            target="${INPUT_VERSION#v}"
+            source="input"
+          else
+            target=$(gh api repos/earendil-works/pi/releases/latest --jq .tag_name | sed 's/^v//')
+            source="upstream-latest"
+          fi
+          current=$(grep -oP '^\s*version = "\K[^"]+' package-src.nix | head -1)
+          current="${current#v}"
+          echo "current=$current"
+          echo "target=$target  (source: $source)"
+          if [[ "$current" == "$target" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Already at v$current; nothing to do."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "target=$target" >> "$GITHUB_OUTPUT"
+            echo "Will update v$current -> v$target"
+          fi
+
+      - name: Update prebuilt hashes (package.nix)
+        if: steps.ver.outputs.skip != 'true'
+        run: bash scripts/update-prebuilt.bash "v${{ steps.ver.outputs.target }}"
+
+      # scripts/update-node.bash runs `nix-update` (bumps version + src hash +
+      # node_modules hash via the passthru updateScript) and falls back to a
+      # manual sed fix on the `node_modules` outputHash if the build still
+      # disagrees.
+      - name: Update source + node_modules hashes (package-src.nix)
+        if: steps.ver.outputs.skip != 'true'
+        run: bash scripts/update-node.bash "v${{ steps.ver.outputs.target }}"
+
+      - name: Build pi-coding-agent (prebuilt)
+        if: steps.ver.outputs.skip != 'true'
+        run: nix build .#pi-coding-agent --no-link
+
+      - name: Build pi-coding-agent-src (from source)
+        if: steps.ver.outputs.skip != 'true'
+        run: nix build .#pi-coding-agent-src --no-link
+
+      - name: Show diff
+        if: steps.ver.outputs.skip != 'true'
+        run: git --no-pager diff -- package.nix package-src.nix
+
+      - name: Open Pull Request
+        if: steps.ver.outputs.skip != 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: update-pi-v${{ steps.ver.outputs.target }}
+          commit-message: "chore: update pi to v${{ steps.ver.outputs.target }}"
+          title: "Update pi to v${{ steps.ver.outputs.target }}"
+          body: |
+            Automated update for [earendil-works/pi v${{ steps.ver.outputs.target }}](https://github.com/earendil-works/pi/releases/tag/v${{ steps.ver.outputs.target }}).
+
+            - `package.nix`: refreshed prebuilt tarball hashes via `scripts/update-prebuilt.bash`
+            - `package-src.nix`: bumped `version`, `src` hash, and `node_modules` hash via `scripts/update-node.bash`
+          add-paths: |
+            package.nix
+            package-src.nix
+          delete-branch: true

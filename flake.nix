@@ -30,6 +30,7 @@
         { pkgs, system }:
         {
           pi-coding-agent = pkgs.callPackage ./package.nix { };
+          pi-coding-agent-src = pkgs.callPackage ./package-src.nix { };
           default = self.packages.${system}.pi-coding-agent;
         }
       );
