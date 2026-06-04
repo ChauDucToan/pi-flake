@@ -44,6 +44,7 @@ jobs:
 
   build:
     name: Build (${{ matrix.system }})
+    if: github.event_name != 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
