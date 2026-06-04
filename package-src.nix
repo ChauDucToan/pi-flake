@@ -55,7 +55,7 @@ let
 
     outputHashMode = "recursive";
     outputHashAlgo = "sha256";
-    outputHash = "sha256-l5XGj5UZVtfoDEjL5aYhY5Z8+UzNZdhJQrr7ZoQLyp8=";
+    outputHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
   };
 in
 stdenvNoCC.mkDerivation (finalAttrs: {

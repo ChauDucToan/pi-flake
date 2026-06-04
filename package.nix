@@ -12,19 +12,19 @@ let
 
   srcs = {
     "x86_64-linux" = {
-      url = "https://github.com/ChauDucToan/pi-flake/releases/download/v${version}/pi-x86_64-linux.tar.gz";
+      url = "https://github.com/earendil-works/pi/releases/download/v${version}/pi-linux-x64.tar.gz";
       hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
     };
     "aarch64-linux" = {
-      url = "https://github.com/ChauDucToan/pi-flake/releases/download/v${version}/pi-aarch64-linux.tar.gz";
+      url = "https://github.com/earendil-works/pi/releases/download/v${version}/pi-linux-arm64.tar.gz";
       hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
     };
     "x86_64-darwin" = {
-      url = "https://github.com/ChauDucToan/pi-flake/releases/download/v${version}/pi-x86_64-darwin.tar.gz";
+      url = "https://github.com/earendil-works/pi/releases/download/v${version}/pi-darwin-x64.tar.gz";
       hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
     };
     "aarch64-darwin" = {
-      url = "https://github.com/ChauDucToan/pi-flake/releases/download/v${version}/pi-aarch64-darwin.tar.gz";
+      url = "https://github.com/earendil-works/pi/releases/download/v${version}/pi-darwin-arm64.tar.gz";
       hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
     };
   };
