@@ -1,0 +1,79 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build:
+    name: Build (${{ matrix.system }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - system: x86_64-linux
+            runner: ubuntu-latest
+            artifact: pi-x86_64-linux
+          - system: aarch64-linux
+            runner: ubuntu-24.04-arm
+            artifact: pi-aarch64-linux
+          - system: x86_64-darwin
+            runner: macos-13
+            artifact: pi-x86_64-darwin
+          - system: aarch64-darwin
+            runner: macos-latest
+            artifact: pi-aarch64-darwin
+
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@v14
+
+      - uses: DeterminateSystems/magic-nix-cache-action@v8
+
+      - name: Build pi-coding-agent
+        run: nix build .#pi-coding-agent -L
+
+      - name: Đóng gói thành release tarball
+        run: |
+          # Package whole pi package
+          tar -czf pi-${{ matrix.system }}.tar.gz -C result/lib pi
+          echo "SHA256: $(sha256sum pi-${{ matrix.system }}.tar.gz)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: pi-${{ matrix.system }}.tar.gz
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Tạo checksums
+        working-directory: artifacts
+        run: sha256sum * > SHA256SUMS
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') }}
+          generate_release_notes: true
+          files: |
+            artifacts/pi-x86_64-linux.tar.gz
+            artifacts/pi-aarch64-linux.tar.gz
+            artifacts/pi-x86_64-darwin.tar.gz
+            artifacts/pi-aarch64-darwin.tar.gz
+            artifacts/SHA256SUMS

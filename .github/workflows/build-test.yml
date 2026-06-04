@@ -1,0 +1,59 @@
+name: Test Build
+
+on:
+  push:
+    branches:
+      - '**'
+    tags-ignore:
+      - '**'
+  pull_request:
+
+jobs:
+  build:
+    name: Build (${{ matrix.system }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - system: x86_64-linux
+            runner: ubuntu-latest
+            artifact: pi-x86_64-linux
+          - system: aarch64-linux
+            runner: ubuntu-24.04-arm
+            artifact: pi-aarch64-linux
+          - system: x86_64-darwin
+            runner: macos-13
+            artifact: pi-x86_64-darwin
+          - system: aarch64-darwin
+            runner: macos-latest
+            artifact: pi-aarch64-darwin
+
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@v14
+
+      - uses: DeterminateSystems/magic-nix-cache-action@v8
+
+      - name: Build
+        run: nix build .#pi-coding-agent -L
+
+      - name: Verify binary runs
+        run: |
+          result=$(nix build .#pi-coding-agent --no-link --print-out-paths)
+          HOME=$(mktemp -d) $result/bin/pi --version
+
+      - name: tarball packaging (dry run)
+        run: |
+          tar -czf pi-${{ matrix.artifact }}.tar.gz -C result/lib pi
+          echo "=== tarball content ==="
+          tar -tzf pi-${{ matrix.artifact }}.tar.gz
+          echo "=== SHA256 ==="
+          sha256sum pi-${{ matrix.artifact }}.tar.gz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: pi-${{ matrix.artifact }}.tar.gz
+          retention-days: 3
