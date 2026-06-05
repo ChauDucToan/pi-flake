@@ -50,6 +50,7 @@ jobs:
         id: ver
         env:
           INPUT_VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           if [[ -n "$INPUT_VERSION" ]]; then
