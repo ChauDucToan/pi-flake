@@ -13,7 +13,7 @@ let
   srcs = {
     "x86_64-linux" = {
       url = "https://github.com/earendil-works/pi/releases/download/v${version}/pi-linux-x64.tar.gz";
-      hash = "sha256-10GwzeoLRIS0Ic+PnndqNe7t0eOPg2EF7imUi0JA5Dc=";
+      hash = "sha256-isAzQ9HhIoEG6BchV/Mta4goKeRrNP6vV38XGl8Th8w=";
     };
     "aarch64-linux" = {
       url = "https://github.com/earendil-works/pi/releases/download/v${version}/pi-linux-arm64.tar.gz";
