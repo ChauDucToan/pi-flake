@@ -27,6 +27,8 @@ let
     hash = "sha256-mOgqwUdL6leyroHKfYHOEuEX+27pIZiaEvcGxlIj8NI=";
   };
 
+  bunLock = ./package-src.bun.lock;
+
   node_modules = stdenvNoCC.mkDerivation {
     pname = "pi-node_modules";
     inherit version src;
@@ -38,9 +40,13 @@ let
 
     dontConfigure = true;
 
+    postPatch = ''
+      cp ${bunLock} bun.lock
+    '';
+
     buildPhase = ''
       runHook preBuild
-      bun install --ignore-scripts --no-progress --linker hoisted
+      bun install --frozen-lockfile --ignore-scripts --no-progress --linker hoisted
       runHook postBuild
     '';
 
@@ -55,7 +61,7 @@ let
 
     outputHashMode = "recursive";
     outputHashAlgo = "sha256";
-    outputHash = "sha256-GItSb14iAkdqa/m8SbekOm2kuaTfVLdiAw2dyC42km8=";
+    outputHash = "sha256-4xpPsETtk5lcapAByP9yhTTVw9w2S6BuDmmpyuBPyTw=";
   };
 in
 stdenvNoCC.mkDerivation (finalAttrs: {

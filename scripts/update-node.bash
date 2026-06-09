@@ -2,6 +2,7 @@
 set -euo pipefail
 
 PACKAGE_FILE="package-src.nix"
+BUN_LOCK_FILE="package-src.bun.lock"
 DUMMY_HASH="sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 
 extract_hash_from_error() {
@@ -48,12 +49,47 @@ update_node_modules() {
   echo "node_modules hash updated: $new_hash"
 }
 
+update_bun_lock() {
+  local repo_root src_path tmp source_dir
+  repo_root=$(pwd)
+  src_path=$(nix eval --raw .#pi-coding-agent-src.src)
+  tmp=$(mktemp -d)
+  trap 'rm -rf "$tmp"' RETURN
+  source_dir="$tmp/source"
+
+  cp -R "$src_path" "$source_dir"
+  chmod -R u+w "$source_dir"
+  if [[ -s "$repo_root/$BUN_LOCK_FILE" ]]; then
+    cp "$repo_root/$BUN_LOCK_FILE" "$source_dir/bun.lock"
+  fi
+
+  (
+    cd "$source_dir"
+    nix shell --inputs-from "$repo_root" nixpkgs#bun -c bun install \
+      --lockfile-only \
+      --ignore-scripts \
+      --no-progress \
+      --linker hoisted
+  )
+
+  cp "$source_dir/bun.lock" "$repo_root/$BUN_LOCK_FILE"
+  trap - RETURN
+  rm -rf "$tmp"
+  echo "bun lock updated: $BUN_LOCK_FILE"
+}
+
 main() {
   local version="${1:?Usage: $0 <version>}"
-  nix run nixpkgs#nix-update -- pi-coding-agent-src --version "$version" --flake
+  nix run --inputs-from . nixpkgs#nix-update -- --flake --src-only --version "$version" pi-coding-agent-src
+
+  if git diff --quiet -- "$PACKAGE_FILE" && [[ -s "$BUN_LOCK_FILE" ]]; then
+    echo "source package unchanged; keeping existing $BUN_LOCK_FILE"
+  else
+    update_bun_lock
+  fi
 
   if ! nix build .#pi-coding-agent-src 2>/dev/null; then
-    echo "nix-update doesn't fixing node_modules, using manual fix:"
+    echo "node_modules hash is out of date, updating fixed-output hash:"
     update_node_modules
   fi
   echo "Done!"

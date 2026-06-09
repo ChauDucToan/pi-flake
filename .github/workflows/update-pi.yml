@@ -95,7 +95,7 @@ jobs:
 
       - name: Show diff
         if: steps.ver.outputs.skip != 'true'
-        run: git --no-pager diff -- package.nix package-src.nix
+        run: git --no-pager diff -- package.nix package-src.nix package-src.bun.lock
 
       - name: Open Pull Request
         if: steps.ver.outputs.skip != 'true'
@@ -109,7 +109,9 @@ jobs:
 
             - `package.nix`: refreshed prebuilt tarball hashes via `scripts/update-prebuilt.bash`
             - `package-src.nix`: bumped `version`, `src` hash, and `node_modules` hash via `scripts/update-node.bash`
+            - `package-src.bun.lock`: refreshed the maintained Bun lockfile used by `bun install --frozen-lockfile`
           add-paths: |
             package.nix
             package-src.nix
+            package-src.bun.lock
           delete-branch: true
