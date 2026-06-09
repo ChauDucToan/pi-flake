@@ -18,13 +18,13 @@ let
     "x86_64-linux" = "bun-linux-x64";
   };
 
-  version = "0.78.1";
+  version = "0.79.0";
 
   src = fetchFromGitHub {
     owner = "earendil-works";
     repo = "pi";
     rev = "v${version}";
-    hash = "sha256-K5+reVdi9LPwUHxFgM1iFWojuj6M/m25ymhkDOQdBE4=";
+    hash = "sha256-mOgqwUdL6leyroHKfYHOEuEX+27pIZiaEvcGxlIj8NI=";
   };
 
   node_modules = stdenvNoCC.mkDerivation {
@@ -55,7 +55,7 @@ let
 
     outputHashMode = "recursive";
     outputHashAlgo = "sha256";
-    outputHash = "sha256-904VdbutkCdJmoLG8QCg8znzT/GGlg8rbEGoTsA59eY=";
+    outputHash = "sha256-4xpPsETtk5lcapAByP9yhTTVw9w2S6BuDmmpyuBPyTw=";
   };
 in
 stdenvNoCC.mkDerivation (finalAttrs: {
