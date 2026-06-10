@@ -13,19 +13,19 @@ let
   srcs = {
     "x86_64-linux" = {
       url = "https://github.com/earendil-works/pi/releases/download/v${version}/pi-linux-x64.tar.gz";
-      hash = "sha256-DJLnOgzYwNQGDinb5ncHGRdGFwPt0sDoHqgMFMMqDao=";
+      hash = "sha256-3BnSsk0Vx2lR/kQKR6ghLO20N6JWluvyelVIEVbenoY=";
     };
     "aarch64-linux" = {
       url = "https://github.com/earendil-works/pi/releases/download/v${version}/pi-linux-arm64.tar.gz";
-      hash = "sha256-kqn6tkKEf30iu1AUtfQKcWXXrNbh5QTkfKFCQrxIhbg=";
+      hash = "sha256-oZGgyNV6vxQkxWD1OYHCoHD3TShjpHp5WOsWxVbEvAQ=";
     };
     "x86_64-darwin" = {
       url = "https://github.com/earendil-works/pi/releases/download/v${version}/pi-darwin-x64.tar.gz";
-      hash = "sha256-idYiVIjIVb/qzY8v6GRbEN79ka6r9/BCc+6VBmjo4u8=";
+      hash = "sha256-fbE/6NPGWCPW77H5gTa/JiiYQsLmpm/Ik9IMM0wLu7M=";
     };
     "aarch64-darwin" = {
       url = "https://github.com/earendil-works/pi/releases/download/v${version}/pi-darwin-arm64.tar.gz";
-      hash = "sha256-fY6mXbv04e8PMJ+xfiF4DG1h4gM0xmE15VE86sIwWEo=";
+      hash = "sha256-djiU+eVgt+sw8oeyEVpSv/rj1vNFOm1RvlJYQFkfZXU=";
     };
   };
 
