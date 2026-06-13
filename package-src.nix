@@ -18,13 +18,13 @@ let
     "x86_64-linux" = "bun-linux-x64";
   };
 
-  version = "0.79.1";
+  version = "0.79.2";
 
   src = fetchFromGitHub {
     owner = "earendil-works";
     repo = "pi";
     rev = "v${version}";
-    hash = "sha256-MvH8e21GVfzRQ9vsxFNC1GHJfB9GZpqY1Z2t8GCUaiQ=";
+    hash = "sha256-LsmGGURENKM1r56dfCZesyyL+4hftmgGczMNYGmOlv0=";
   };
 
   bunLock = ./package-src.bun.lock;
