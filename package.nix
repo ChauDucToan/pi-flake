@@ -1,4 +1,4 @@
-{
+
   lib,
   stdenv,
   stdenvNoCC,
@@ -8,7 +8,7 @@
 }:
 
 let
-  version = "0.78.0";
+  version = "0.79.3";
 
   srcs = {
     "x86_64-linux" = {
