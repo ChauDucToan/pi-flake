@@ -18,13 +18,13 @@ let
     "x86_64-linux" = "bun-linux-x64";
   };
 
-  version = "0.79.3";
+  version = "0.79.4";
 
   src = fetchFromGitHub {
     owner = "earendil-works";
     repo = "pi";
     rev = "v${version}";
-    hash = "sha256-w9cbxNUH3anMhZ1eVDLLZJiFRgviSICadmQargHdFSw=";
+    hash = "sha256-cAlQfKtT8kLoAHYvXusbpM2I9FrRijWzSPQDSy/Kkro=";
   };
 
   bunLock = ./package-src.bun.lock;
@@ -61,7 +61,7 @@ let
 
     outputHashMode = "recursive";
     outputHashAlgo = "sha256";
-    outputHash = "sha256-4xpPsETtk5lcapAByP9yhTTVw9w2S6BuDmmpyuBPyTw=";
+    outputHash = "sha256-a4ZMIUNhFNPpoR3EeDPbsH26/mSD8khnFRJUJDJYri8=";
   };
 in
 stdenvNoCC.mkDerivation (finalAttrs: {
