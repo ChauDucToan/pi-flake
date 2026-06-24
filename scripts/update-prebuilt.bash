@@ -51,13 +51,26 @@ update_hash_for_system() {
   echo "  updated: $system -> $new_hash"
 }
 
+update_version() {
+  local version_num="$1"
+
+  if ! grep -qE '^  version = "[^"]+";' "$PACKAGE_FILE"; then
+    echo "Error: could not find version declaration in $PACKAGE_FILE" >&2
+    exit 1
+  fi
+
+  sed -i "s/^  version = \"[^\"]\+\";/  version = \"${version_num}\";/" "$PACKAGE_FILE"
+  echo "  updated: version -> ${version_num}"
+}
+
 main() {
   local version="${1:?Usage: $0 <version> (e.g. v0.78.0)}"
   # Normalize: accept both '0.78.0' and 'v0.78.0'
   local version_num="${version#v}"
   local base_url="${BASE_URL}${version_num}"
 
-  echo "Prefetching src hashes for version ${version}..."
+  echo "Updating prebuilt package metadata for version ${version}..."
+  update_version "$version_num"
 
   for system in "${!TARBALLS[@]}"; do
     local tarball="${TARBALLS[$system]}"

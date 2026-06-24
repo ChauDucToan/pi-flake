@@ -73,7 +73,7 @@ jobs:
             echo "Will update v$current -> v$target"
           fi
 
-      - name: Update prebuilt hashes (package.nix)
+      - name: Update prebuilt package metadata (package.nix)
         if: steps.ver.outputs.skip != 'true'
         run: bash scripts/update-prebuilt.bash "v${{ steps.ver.outputs.target }}"
 
@@ -107,7 +107,7 @@ jobs:
           body: |
             Automated update for [earendil-works/pi v${{ steps.ver.outputs.target }}](https://github.com/earendil-works/pi/releases/tag/v${{ steps.ver.outputs.target }}).
 
-            - `package.nix`: refreshed prebuilt tarball hashes via `scripts/update-prebuilt.bash`
+            - `package.nix`: bumped `version` and refreshed prebuilt tarball hashes via `scripts/update-prebuilt.bash`
             - `package-src.nix`: bumped `version`, `src` hash, and `node_modules` hash via `scripts/update-node.bash`
             - `package-src.bun.lock`: refreshed the maintained Bun lockfile used by `bun install --frozen-lockfile`
           add-paths: |
