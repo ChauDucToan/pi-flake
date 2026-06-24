@@ -8,7 +8,7 @@
 }:
 
 let
-  version = "0.79.3";
+  version = "0.80.2";
 
   srcs = {
     "x86_64-linux" = {
