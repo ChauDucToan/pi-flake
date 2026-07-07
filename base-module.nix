@@ -11,6 +11,7 @@ with lib;
 
 let
   isHM = moduleType == "home-manager";
+  defaultPackage = pkgs.pi or (pkgs.callPackage ./package.nix { });
 
   attrPath =
     if isHM then
@@ -24,6 +25,10 @@ let
         "pi-coding-agent"
       ];
   cfg = getAttrFromPath attrPath config;
+
+  opts = import ./modules/options.nix {
+    inherit lib isHM defaultPackage;
+  };
 
   modelsJson = pkgs.writeText "pi-models.json" (builtins.toJSON cfg.models);
   keybindingsJson = pkgs.writeText "pi-keybindings.json" (builtins.toJSON cfg.keybindings);
@@ -53,7 +58,7 @@ let
       local uname="$4"
       local gname="$5"
       if [ -f "$target_file" ]; then
-        if ! diff -Bw "$target_file" "$source_file" > /dev/null; then
+        if ! cmp -s "$target_file" "$source_file"; then
           echo "[NIX PROTECTED ERROR]: Found inconsistency in the content of '$target_file' ($label)" >&2
           echo "Make sure that you already backup before rebuild" >&2
           exit 1
@@ -82,7 +87,7 @@ let
 
           ${concatMapStringsSep "\n" (ext: ''
             echo "[Pi Module] installing extension: ${ext}..."
-            ${piPackage}/bin/pi install '${ext}' 2>&1
+            ${piPackage}/bin/pi install ${escapeShellArg ext} 2>&1
           '') cfg.extensions}
         ''
       else
@@ -98,13 +103,13 @@ let
                 keybindingsFile = "${homeDir}/.pi/agent/keybindings.json";
 
                 installExtensionCmds = concatMapStringsSep "\n" (ext: ''
-                              echo "[Pi Module] installing extension: ${ext} for user ${username}..."
-                              runuser -l ${username} -c "export HOME=${homeDir}; ${piPackage}/bin/pi install '${ext}' 2>&1
-                  "           '') cfg.extensions;
+                  echo "[Pi Module] installing extension: ${ext} for user ${username}..."
+                  runuser -u ${escapeShellArg username} -- env HOME=${escapeShellArg homeDir} ${piPackage}/bin/pi install ${escapeShellArg ext} 2>&1
+                '') cfg.extensions;
               in
               ''
-                mkdir -p "${homeDir}/.pi/agent"
-                chown ${username}:${userConfig.group} "${homeDir}/.pi/agent"
+                install -d -o ${escapeShellArg username} -g ${escapeShellArg userConfig.group} ${escapeShellArg homeDir}/.pi
+                install -d -o ${escapeShellArg username} -g ${escapeShellArg userConfig.group} ${escapeShellArg homeDir}/.pi/agent
 
                 if ${if cfg.mutableDir then "true" else "false"}; then
                   check_and_sync "${modelsFile}" "${modelsJson}" "models" "${username}" "${userConfig.group}"
@@ -125,58 +130,7 @@ let
   '';
 in
 {
-  options = setAttrByPath attrPath (
-    {
-      enable = mkEnableOption "Pi Coding Agent";
-
-      package = mkOption {
-        type = types.package;
-        default = pkgs.pi;
-        description = "Package pi";
-      };
-
-      mutableDir = mkOption {
-        type = types.bool;
-        default = false;
-        description = "Make config editable";
-      };
-
-      extensions = mkOption {
-        type = types.listOf types.str;
-        default = [ ];
-        description = "Auto extensions";
-      };
-
-      extraEnv = mkOption {
-        type = types.attrsOf (types.either types.str types.int);
-        default = { };
-      };
-
-      models = mkOption {
-        type = types.attrs;
-        default = { };
-        description = "Models setup";
-      };
-
-      keybindings = mkOption {
-        type = types.attrsOf (types.listOf types.str);
-        default = { };
-        description = "Keybindings";
-      };
-    }
-    // (
-      if isHM then
-        { }
-      else
-        {
-          users = mkOption {
-            type = types.listOf types.str;
-            default = [ ];
-            description = "Target users";
-          };
-        }
-    )
-  );
+  options = setAttrByPath attrPath opts;
 
   config = mkIf cfg.enable (mkMerge [
     (
