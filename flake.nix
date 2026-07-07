@@ -1,11 +1,24 @@
 {
   description = "Pi - Your minimal agent harness";
 
-  inputs.nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
+  inputs = {
+    nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
+
+    home-manager = {
+      url = "github:nix-community/home-manager";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
 
   outputs =
-    { self, nixpkgs }:
+    {
+      self,
+      nixpkgs,
+      home-manager,
+    }:
     let
+      lib = nixpkgs.lib;
+
       systems = [
         "aarch64-darwin"
         "x86_64-darwin"
@@ -13,20 +26,28 @@
         "x86_64-linux"
       ];
 
-      forEachSystem =
-        f:
-        nixpkgs.lib.genAttrs systems (
+      linuxSystems = [
+        "aarch64-linux"
+        "x86_64-linux"
+      ];
+
+      forSystems =
+        targetSystems: f:
+        lib.genAttrs targetSystems (
           system:
           f {
             pkgs = nixpkgs.legacyPackages.${system};
             inherit system;
           }
         );
+
+      eachSystem = forSystems systems;
+      eachLinuxSystem = forSystems linuxSystems;
     in
     {
-      formatter = forEachSystem ({ pkgs, ... }: pkgs.nixfmt);
+      formatter = eachSystem ({ pkgs, ... }: pkgs.nixfmt);
 
-      packages = forEachSystem (
+      packages = eachSystem (
         { pkgs, system }:
         {
           pi-coding-agent = pkgs.callPackage ./package.nix { };
@@ -36,8 +57,16 @@
       );
 
       nixosModules.default = import ./module.nix;
-
       homeManagerModules.default = import ./hm-module.nix;
+
+      checks = import ./checks.nix {
+        inherit
+          lib
+          self
+          home-manager
+          eachLinuxSystem
+          ;
+      };
 
       overlays.default = final: _: {
         pi = final.callPackage ./package.nix { };

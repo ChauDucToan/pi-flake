@@ -130,6 +130,8 @@ let
   '';
 in
 {
+  disabledModules = lib.optional isHM "programs/pi-coding-agent.nix";
+
   options = setAttrByPath attrPath opts;
 
   config = mkIf cfg.enable (mkMerge [
