@@ -85,6 +85,10 @@ jobs:
         if: steps.ver.outputs.skip != 'true'
         run: bash scripts/update-node.bash "v${{ steps.ver.outputs.target }}"
 
+      - name: Check modules
+        if: steps.ver.outputs.skip != 'true'
+        run: nix build .#checks.x86_64-linux.nixos-module .#checks.x86_64-linux.home-manager-module --no-link
+
       - name: Build pi-coding-agent (prebuilt)
         if: steps.ver.outputs.skip != 'true'
         run: nix build .#pi-coding-agent --no-link

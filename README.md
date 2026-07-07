@@ -125,10 +125,10 @@ On every system activation, the module:
 
 1. Creates `~/.pi/agent/` for each configured user.
 2. Writes (or symlinks) `models.json` and `keybindings.json` inside it.
-3. If `mutableDir = false` (default), the files are **read-only symlinks** into the Nix store — any manual edits will be lost on rebuild. The module also **guards against accidental edits**: if you mutate a mutable file and it differs from the declared config, activation will fail with a clear error message asking you to back up first.
-4. Runs `pi install <ext>` for every extension declared in `extensions`.
+3. If `mutableDir = false` (default), the files are **read-only symlinks** into the Nix store. If `mutableDir = true`, the files are copied once; activation fails if an existing file differs from the declared config.
+4. Runs `pi install <ext>` during activation for every extension declared in `extensions`.
 
-> **Note:** `models` and `keybindings` are fully replaced on every rebuild. If you need to keep local edits, set `mutableDir = true`.
+> **Note:** `models` and `keybindings` are declarative. If you need local edits, set `mutableDir = true` and update your Nix config before the next rebuild.
 
 ---
 
