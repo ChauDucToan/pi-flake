@@ -86,7 +86,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
       --compile \
       --target=${bunTarget.${stdenvNoCC.hostPlatform.system}} \
       --outfile=pi \
-      ./packages/coding-agent/src/cli.ts \
+      ./packages/coding-agent/src/bun/cli.ts \
       ./packages/coding-agent/src/utils/image-resize-worker.ts
     runHook postBuild
   '';
