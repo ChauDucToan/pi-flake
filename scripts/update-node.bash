@@ -17,6 +17,15 @@ update_node_hash() {
   sed -i "s|outputHash = \"${old_hash}\"|outputHash = \"${new_hash}\"|" "$PACKAGE_FILE"
 }
 
+update_ai_data_hash() {
+  local version="${1#v}"
+  local old_hash new_hash
+  old_hash=$(sed -n '/aiData = fetchurl {/,/  };/p' "$PACKAGE_FILE" | grep -oP 'hash = "\Ksha256-[A-Za-z0-9+/]+={0,2}')
+  new_hash=$(nix hash convert --to sri --hash-algo sha256 "$(nix-prefetch-url --type sha256 "https://registry.npmjs.org/@earendil-works/pi-ai/-/pi-ai-${version}.tgz")")
+  sed -i "/aiData = fetchurl {/,/  };/s|hash = \"${old_hash}\"|hash = \"${new_hash}\"|" "$PACKAGE_FILE"
+  echo "pi-ai data hash updated: $new_hash"
+}
+
 get_current_node_hash() {
   # Match only the `outputHash` line that follows `outputHashMode = "recursive"`
   # — that's unique to the `node_modules` fixed-output derivation. A bare
@@ -81,6 +90,7 @@ update_bun_lock() {
 main() {
   local version="${1:?Usage: $0 <version>}"
   nix run --inputs-from . nixpkgs#nix-update -- --flake --src-only --version "$version" pi-coding-agent-src
+  update_ai_data_hash "$version"
 
   if git diff --quiet -- "$PACKAGE_FILE" && [[ -s "$BUN_LOCK_FILE" ]]; then
     echo "source package unchanged; keeping existing $BUN_LOCK_FILE"
