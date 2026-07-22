@@ -4,6 +4,7 @@
   stdenvNoCC,
   bun,
   fetchFromGitHub,
+  fetchurl,
   makeWrapper,
   writableTmpDirAsHomeHook,
   testers,
@@ -25,6 +26,11 @@ let
     repo = "pi";
     rev = "v${version}";
     hash = "sha256-Vs/ndHYzFyfN4CjPV2zMYblLXe9IuM13UrPJI1VsZEQ=";
+  };
+
+  aiData = fetchurl {
+    url = "https://registry.npmjs.org/@earendil-works/pi-ai/-/pi-ai-${version}.tgz";
+    hash = "sha256-beU39yM4zKijoOWnolvUhdbJRdFq3xMJt5d/ZDITIys=";
   };
 
   bunLock = ./package-src.bun.lock;
@@ -73,6 +79,12 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     makeWrapper
     writableTmpDirAsHomeHook
   ];
+
+  postPatch = ''
+    if tar -tzf ${aiData} package/dist/providers/data >/dev/null 2>&1; then
+      tar -xzf ${aiData} --strip-components=3 -C packages/ai/src/providers package/dist/providers/data
+    fi
+  '';
 
   configurePhase = ''
     runHook preConfigure
