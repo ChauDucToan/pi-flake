@@ -19,9 +19,10 @@
     },
     "packages/agent": {
       "name": "@earendil-works/pi-agent-core",
-      "version": "0.83.0",
+      "version": "0.84.0",
       "dependencies": {
-        "@earendil-works/pi-ai": "^0.83.0",
+        "@earendil-works/pi-ai": "^0.84.0",
+        "@earendil-works/pi-telemetry": "^0.84.0",
         "diff": "8.0.4",
         "ignore": "7.0.5",
         "typebox": "1.3.7",
@@ -36,13 +37,14 @@
     },
     "packages/ai": {
       "name": "@earendil-works/pi-ai",
-      "version": "0.83.0",
+      "version": "0.84.0",
       "bin": {
         "pi-ai": "dist/cli.js",
       },
       "dependencies": {
         "@anthropic-ai/sdk": "0.91.1",
         "@aws-sdk/client-bedrock-runtime": "3.1048.0",
+        "@earendil-works/pi-telemetry": "^0.84.0",
         "@google/genai": "1.52.0",
         "@mistralai/mistralai": "2.2.6",
         "@opentelemetry/api": "1.9.0",
@@ -59,21 +61,35 @@
         "vitest": "4.1.9",
       },
     },
+    "packages/client": {
+      "name": "@earendil-works/pi-client",
+      "version": "0.84.0",
+      "dependencies": {
+        "@earendil-works/pi-protocol": "^0.84.0",
+      },
+      "devDependencies": {
+        "shx": "0.4.0",
+        "vitest": "4.1.9",
+      },
+    },
     "packages/coding-agent": {
       "name": "@earendil-works/pi-coding-agent",
-      "version": "0.83.0",
+      "version": "0.84.0",
       "bin": {
         "pi": "dist/cli.js",
       },
       "dependencies": {
-        "@earendil-works/pi-agent-core": "^0.83.0",
-        "@earendil-works/pi-ai": "^0.83.0",
-        "@earendil-works/pi-tui": "^0.83.0",
+        "@earendil-works/pi-agent-core": "^0.84.0",
+        "@earendil-works/pi-ai": "^0.84.0",
+        "@earendil-works/pi-client": "^0.84.0",
+        "@earendil-works/pi-protocol": "^0.84.0",
+        "@earendil-works/pi-tui": "^0.84.0",
         "@silvia-odwyer/photon-node": "0.3.4",
         "chalk": "5.6.2",
         "cross-spawn": "7.0.6",
         "diff": "8.0.4",
         "glob": "13.0.6",
+        "grok-mermaid": "0.2.2",
         "highlight.js": "10.7.3",
         "hosted-git-info": "9.0.3",
         "ignore": "7.0.5",
@@ -82,7 +98,7 @@
         "proper-lockfile": "4.1.2",
         "semver": "7.8.0",
         "typebox": "1.3.7",
-        "undici": "8.5.0",
+        "undici": "8.9.0",
         "yaml": "2.9.0",
       },
       "devDependencies": {
@@ -103,32 +119,32 @@
     },
     "packages/coding-agent/examples/extensions/custom-provider-anthropic": {
       "name": "pi-extension-custom-provider-anthropic",
-      "version": "0.83.0",
+      "version": "0.84.0",
       "dependencies": {
         "@anthropic-ai/sdk": "0.52.0",
       },
     },
     "packages/coding-agent/examples/extensions/custom-provider-gitlab-duo": {
       "name": "pi-extension-custom-provider-gitlab-duo",
-      "version": "0.83.0",
+      "version": "0.84.0",
     },
     "packages/coding-agent/examples/extensions/gondolin": {
       "name": "pi-extension-gondolin",
-      "version": "0.83.0",
+      "version": "0.84.0",
       "dependencies": {
         "@earendil-works/gondolin": "0.12.0",
       },
     },
     "packages/coding-agent/examples/extensions/sandbox": {
       "name": "pi-extension-sandbox",
-      "version": "1.13.0",
+      "version": "1.14.0",
       "dependencies": {
         "@anthropic-ai/sandbox-runtime": "0.0.26",
       },
     },
     "packages/coding-agent/examples/extensions/with-deps": {
       "name": "pi-extension-with-deps",
-      "version": "0.83.0",
+      "version": "0.84.0",
       "dependencies": {
         "ms": "2.1.3",
       },
@@ -138,7 +154,7 @@
     },
     "packages/evals": {
       "name": "@earendil-works/pi-evals",
-      "version": "0.83.0",
+      "version": "0.84.0",
       "devDependencies": {
         "@earendil-works/pi-ai": "^0.83.0",
         "@earendil-works/pi-coding-agent": "^0.83.0",
@@ -149,30 +165,52 @@
         "vitest-evals": "0.15.0",
       },
     },
-    "packages/server": {
-      "name": "@earendil-works/pi-server",
-      "version": "0.83.0",
-      "bin": {
-        "server": "./dist/cli.js",
-      },
+    "packages/protocol": {
+      "name": "@earendil-works/pi-protocol",
+      "version": "0.84.0",
       "dependencies": {
-        "@earendil-works/pi-coding-agent": "^0.82.0",
+        "typebox": "1.3.7",
       },
       "devDependencies": {
         "shx": "0.4.0",
+        "vitest": "4.1.9",
       },
     },
-    "packages/storage/sqlite-node": {
-      "name": "@earendil-works/pi-storage-sqlite-node",
-      "version": "0.83.0",
+    "packages/server": {
+      "name": "@earendil-works/pi-server",
+      "version": "0.84.0",
       "dependencies": {
-        "@earendil-works/pi-agent-core": "^0.82.0",
-        "@earendil-works/pi-ai": "^0.82.0",
+        "@earendil-works/pi-ai": "^0.84.0",
+        "@earendil-works/pi-protocol": "^0.84.0",
+      },
+      "devDependencies": {
+        "shx": "0.4.0",
+        "vitest": "4.1.9",
+      },
+    },
+    "packages/session-backends/sqlite-node": {
+      "name": "@earendil-works/pi-session-backend-sqlite-node",
+      "version": "0.84.0",
+      "dependencies": {
+        "@earendil-works/pi-agent-core": "^0.84.0",
+        "@earendil-works/pi-ai": "^0.84.0",
+      },
+      "devDependencies": {
+        "@vitest/coverage-v8": "4.1.9",
+        "vitest": "4.1.9",
+      },
+    },
+    "packages/telemetry": {
+      "name": "@earendil-works/pi-telemetry",
+      "version": "0.84.0",
+      "devDependencies": {
+        "@types/node": "24.12.4",
+        "vitest": "4.1.9",
       },
     },
     "packages/tui": {
       "name": "@earendil-works/pi-tui",
-      "version": "0.83.0",
+      "version": "0.84.0",
       "dependencies": {
         "get-east-asian-width": "1.6.0",
         "marked": "18.0.5",
@@ -284,13 +322,19 @@
 
     "@earendil-works/pi-ai": ["@earendil-works/pi-ai@workspace:packages/ai"],
 
+    "@earendil-works/pi-client": ["@earendil-works/pi-client@workspace:packages/client"],
+
     "@earendil-works/pi-coding-agent": ["@earendil-works/pi-coding-agent@workspace:packages/coding-agent"],
 
     "@earendil-works/pi-evals": ["@earendil-works/pi-evals@workspace:packages/evals"],
 
+    "@earendil-works/pi-protocol": ["@earendil-works/pi-protocol@workspace:packages/protocol"],
+
     "@earendil-works/pi-server": ["@earendil-works/pi-server@workspace:packages/server"],
 
-    "@earendil-works/pi-storage-sqlite-node": ["@earendil-works/pi-storage-sqlite-node@workspace:packages/storage/sqlite-node"],
+    "@earendil-works/pi-session-backend-sqlite-node": ["@earendil-works/pi-session-backend-sqlite-node@workspace:packages/session-backends/sqlite-node"],
+
+    "@earendil-works/pi-telemetry": ["@earendil-works/pi-telemetry@workspace:packages/telemetry"],
 
     "@earendil-works/pi-tui": ["@earendil-works/pi-tui@workspace:packages/tui"],
 
@@ -668,6 +712,8 @@
 
     "graceful-fs": ["graceful-fs@4.2.11", "", {}, "sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ=="],
 
+    "grok-mermaid": ["grok-mermaid@0.2.2", "", {}, "sha512-XcJEP5dDC8liHBh52mlLjU18fNvu1ckFsu0QpIG3+APZ270fsj9wxpiA6cOURmbUEuoMVgjbC2+UYgTdCqqgzA=="],
+
     "has-flag": ["has-flag@4.0.0", "", {}, "sha512-EykJT/Q1KjTWctppgIAgfSO0tKVuZUjhgMr17kqTumMl6Afv3EISleU7qZUzoXDFTAHTDC4NOoG/ZxU3EvlMPQ=="],
 
     "hasown": ["hasown@2.0.4", "", { "dependencies": { "function-bind": "^1.1.2" } }, "sha512-T2UbfbBEF32wiepXIsMlTW9+dDYC6wMh/t/vYA4tuOMKqWz/n3vr1NFSxQiyP+zk2mXsoMA/i/7qV6LKut1t1A=="],
@@ -910,7 +956,7 @@
 
     "typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
-    "undici": ["undici@8.5.0", "", {}, "sha512-xamtWoB1EshgjpmlXd7GGm2VfdDtw1+rD8uhry8pSNW3If6S8E0m2T2+orSKeZXEn/aPJMviCpDBA65WJt8zhg=="],
+    "undici": ["undici@8.9.0", "", {}, "sha512-aWZpUj7XoGonMClx4gdDRfgBjqeA+F473aDmROQQbM9n6PRfK/u1q/a0X4wMTgcHfT8H6fpbt98PFuDUwFg2YA=="],
 
     "undici-types": ["undici-types@6.21.0", "", {}, "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ=="],
 
@@ -956,6 +1002,8 @@
 
     "@earendil-works/pi-evals/@types/node": ["@types/node@24.12.4", "", { "dependencies": { "undici-types": "~7.16.0" } }, "sha512-GUUEShf+PBCGW2KaXwcIt3Yk+e3pkKwWKb9GSyM9WQVE+ep2jzmHdGsHzu4wgcZy5fN9FBdVzjpBQsYlpfpgLA=="],
 
+    "@earendil-works/pi-telemetry/@types/node": ["@types/node@24.12.4", "", { "dependencies": { "undici-types": "~7.16.0" } }, "sha512-GUUEShf+PBCGW2KaXwcIt3Yk+e3pkKwWKb9GSyM9WQVE+ep2jzmHdGsHzu4wgcZy5fN9FBdVzjpBQsYlpfpgLA=="],
+
     "@types/cross-spawn/@types/node": ["@types/node@24.12.4", "", { "dependencies": { "undici-types": "~7.16.0" } }, "sha512-GUUEShf+PBCGW2KaXwcIt3Yk+e3pkKwWKb9GSyM9WQVE+ep2jzmHdGsHzu4wgcZy5fN9FBdVzjpBQsYlpfpgLA=="],
 
     "execa/cross-spawn": ["cross-spawn@6.0.6", "", { "dependencies": { "nice-try": "^1.0.4", "path-key": "^2.0.1", "semver": "^5.5.0", "shebang-command": "^1.2.0", "which": "^1.2.9" } }, "sha512-VqCUuhcd1iB+dsv8gxPttb5iZh/D0iubSP21g36KXdEuf6I5JiioesUVjpCdHV9MZRUfVFlvwtIUyPfxo5trtw=="],
@@ -987,6 +1035,8 @@
     "@earendil-works/pi-coding-agent/@types/node/undici-types": ["undici-types@7.16.0", "", {}, "sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw=="],
 
     "@earendil-works/pi-evals/@types/node/undici-types": ["undici-types@7.16.0", "", {}, "sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw=="],
+
+    "@earendil-works/pi-telemetry/@types/node/undici-types": ["undici-types@7.16.0", "", {}, "sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw=="],
 
     "@types/cross-spawn/@types/node/undici-types": ["undici-types@7.16.0", "", {}, "sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw=="],
 
