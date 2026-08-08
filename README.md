@@ -19,7 +19,7 @@ In your `flake.nix` inputs:
 
 ```nix
 inputs = {
-  pi-flake.url = "github:oslamelon/pi-flake";
+  pi-flake.url = "github:ChauDucToan/pi-flake";
   # optional, if you use Home Manager:
   home-manager.url = "github:nix-community/home-manager";
 };
@@ -29,7 +29,7 @@ inputs = {
 
 ```nix
 {
-  inputs.pi-flake.url = "github:oslamelon/pi-flake";
+  inputs.pi-flake.url = "github:ChauDucToan/pi-flake";
 
   outputs = { self, nixpkgs, pi-flake }: {
     nixosConfigurations.myMachine = nixpkgs.lib.nixosSystem {
@@ -125,10 +125,21 @@ On every system activation, the module:
 
 1. Creates `~/.pi/agent/` for each configured user.
 2. Writes (or symlinks) `models.json` and `keybindings.json` inside it.
-3. If `mutableDir = false` (default), the files are **read-only symlinks** into the Nix store. If `mutableDir = true`, the files are copied once; activation fails if an existing file differs from the declared config.
+3. If `mutableDir = false` (default), the files are **read-only symlinks** into the Nix store. If `mutableDir = true`, the files are copied; activation fails if an existing file differs from the declared config. Set `mutableDirBackupOnConflict = true` to back up (`<file>.backup`) and overwrite instead of failing.
 4. Runs `pi install <ext>` during activation for every extension declared in `extensions`.
 
 > **Note:** `models` and `keybindings` are declarative. If you need local edits, set `mutableDir = true` and update your Nix config before the next rebuild.
+
+### Secrets
+
+`models.json` is a world-readable file (a symlink into the nix store, or a copy when
+`mutableDir = true`). **Never put literal API keys in `models`/`keybindings`.** pi
+supports value resolution, so prefer:
+
+- environment variables: `apiKey = "$MY_API_KEY";`
+- shell commands: `apiKey = "!op read 'op://vault/item/key'";`
+
+The module warns at eval time when it detects literal `apiKey`/`headers` values.
 
 ---
 
@@ -200,13 +211,13 @@ If you don't want the modules, just use the overlay to get the `pi` package:
 
 ```nix
 {
-  inputs.pi-flake.url = "github:oslamelon/pi-flake";
+  inputs.pi-flake.url = "github:ChauDucToan/pi-flake";
 
   outputs = { pi-flake, ... }: pi-flake.packages.x86_64-linux.default;
 }
 ```
 
-Then run `nix run github:oslamelon/pi-flake` to try Pi directly.
+Then run `nix run github:ChauDucToan/pi-flake` to try Pi directly.
 
 ---
 

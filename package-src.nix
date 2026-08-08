@@ -81,9 +81,12 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   ];
 
   postPatch = ''
-    if tar -tzf ${aiData} package/dist/providers/data >/dev/null 2>&1; then
-      tar -xzf ${aiData} --strip-components=3 -C packages/ai/src/providers package/dist/providers/data
+    if ! tar -tzf ${aiData} package/dist/providers/data >/dev/null 2>&1; then
+      echo "ERROR: expected package/dist/providers/data not found in ${aiData}" >&2
+      echo "The pi-ai tarball layout changed; update the extraction path in postPatch." >&2
+      exit 1
     fi
+    tar -xzf ${aiData} --strip-components=3 -C packages/ai/src/providers package/dist/providers/data
   '';
 
   configurePhase = ''

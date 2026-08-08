@@ -30,6 +30,26 @@ let
     inherit lib isHM defaultPackage;
   };
 
+  # Detect literal apiKey/header values that would be copied world-readable
+  # into the nix store. pi resolves plain strings, `$ENV_VAR` references and
+  # `!command` substitutions; warn when a plain secret is declared.
+  isLiteralSecret =
+    value:
+    lib.isString value && value != "" && !(lib.hasPrefix "$" value) && !(lib.hasPrefix "!" value);
+
+  collectLiteralSecrets =
+    providers:
+    lib.foldlAttrs (
+      acc: name: prov:
+      acc
+      ++ lib.optional (isLiteralSecret (prov.apiKey or "")) "${name}.apiKey"
+      ++ lib.mapAttrsToList (k: v: "${name}.headers.${k}") (
+        lib.filterAttrs (_: isLiteralSecret) (prov.headers or { })
+      )
+    ) [ ] providers;
+
+  literalSecrets = collectLiteralSecrets (cfg.models.providers or { });
+
   modelsJson = pkgs.writeText "pi-models.json" (builtins.toJSON cfg.models);
   keybindingsJson = pkgs.writeText "pi-keybindings.json" (builtins.toJSON cfg.keybindings);
 
@@ -59,15 +79,19 @@ let
       local gname="$5"
       if [ -f "$target_file" ]; then
         if ! cmp -s "$target_file" "$source_file"; then
-          echo "[NIX PROTECTED ERROR]: Found inconsistency in the content of '$target_file' ($label)" >&2
-          echo "Make sure that you already backup before rebuild" >&2
-          exit 1
+          if ${if cfg.mutableDirBackupOnConflict then "true" else "false"}; then
+            echo "[Pi Module] backing up modified '$target_file' ($label)..." >&2
+            cp "$target_file" "$target_file.backup"
+          else
+            echo "[NIX PROTECTED ERROR]: Found inconsistency in the content of '$target_file' ($label)" >&2
+            echo "Make sure that you already backup before rebuild" >&2
+            exit 1
+          fi
         fi
-      else
-        cp "$source_file" "$target_file"
-        if [ -n "$uname" ]; then chown "$uname:$gname" "$target_file"; fi
-        chmod 644 "$target_file"
       fi
+      cp "$source_file" "$target_file"
+      if [ -n "$uname" ]; then chown "$uname:$gname" "$target_file"; fi
+      chmod 644 "$target_file"
     }
 
     ${
@@ -153,5 +177,16 @@ in
           };
         }
     )
+    {
+      # Warn at eval time when a literal secret would end up world-readable in
+      # the nix store. Prefer `$ENV_VAR` or `!command` references instead.
+      warnings = lib.optional (literalSecrets != [ ]) ''
+        pi-coding-agent: literal secret values in `models.providers` will be
+        written world-readable into the nix store:
+          ${concatStringsSep "\n  " literalSecrets}
+        Use an environment variable reference (`$MY_API_KEY`) or a shell
+        command (`!op read ...`) instead.
+      '';
+    }
   ]);
 }
