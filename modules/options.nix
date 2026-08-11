@@ -96,7 +96,7 @@ in
     '';
   };
 
-  # Legacy options (deprecated, assertions in base-module.nix)
+  # Legacy options (still work, print migration warning in base-module.nix)
   models = legacyOption {
     type = types.attrs;
     description = ''
@@ -104,7 +104,7 @@ in
     '';
   };
 
-  # Legacy options (deprecated, assertions in base-module.nix)
+  # Legacy options (still work, print migration warning in base-module.nix)
   keybindings = legacyOption {
     type = types.attrsOf (types.listOf types.str);
     description = ''
@@ -112,7 +112,7 @@ in
     '';
   };
 
-  # Legacy options (deprecated, assertions in base-module.nix)
+  # Legacy options (still work, print migration warning in base-module.nix)
   mutableDir = legacyOption {
     type = types.bool;
     default = false;
