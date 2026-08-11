@@ -30,8 +30,7 @@ let
     inherit lib isHM defaultPackage;
   };
 
-  modelsJson = pkgs.writeText "pi-models.json" (builtins.toJSON cfg.models);
-  keybindingsJson = pkgs.writeText "pi-keybindings.json" (builtins.toJSON cfg.keybindings);
+  checkAndSync = import ./modules/check-and-sync.nix { inherit pkgs; };
 
   piPackage =
     if cfg.extraEnv == { } then
@@ -50,82 +49,100 @@ let
         '';
       };
 
+  # `agentFiles` (new, recommended) wins over the legacy options.
+  # Legacy options still work but print a migration warning.
+  effectiveAgentFiles =
+    let
+      legacy = optionalAttrs (cfg.models != { }) {
+        models = {
+          value = cfg.models;
+          mutable = cfg.mutableDir;
+        };
+      } // optionalAttrs (cfg.keybindings != { }) {
+        keybindings = {
+          value = cfg.keybindings;
+          mutable = cfg.mutableDir;
+        };
+      };
+    in
+    warnIf (cfg.models != { })
+      "[pi] `models` is deprecated. Set `agentFiles.models.value` instead."
+      (warnIf (cfg.keybindings != { })
+        "[pi] `keybindings` is deprecated. Set `agentFiles.keybindings.value` instead."
+        (warnIf cfg.mutableDir
+          "[pi] `mutableDir` is deprecated. Set `agentFiles.<name>.mutable` per file instead."
+          (legacy // cfg.agentFiles)));
+
+  # Each declared file → a derivation in the Nix store.
+  fileDerivations = mapAttrs (filename: entry:
+    pkgs.writeText "pi-${filename}.json" (builtins.toJSON entry.value)
+  ) effectiveAgentFiles;
+
+  # Per-file install command for one target directory.
+  # mutable -> check_and_sync (copy once, then diverge, error on drift).
+  # immutable -> symlink into store.
+  installFile =
+    { homeDir, username ? null, group ? null }:
+    mapAttrsToList (filename: entry:
+      let
+        src = fileDerivations.${filename};
+        target = "${homeDir}/.pi/agent/${filename}.json";
+      in
+      if entry.mutable then
+        ''check_and_sync "${target}" "${src}" "${filename}" ${optionalString (username != null) "${username} ${group}"}''
+      else
+        ''ln -sf "${src}" "${target}"
+          ${optionalString (username != null) "chown -h ${username}:${group} ${escapeShellArg target}"}''
+    ) effectiveAgentFiles;
+
+  installExtensions =
+    { piExecutable, username ? null, homeDir ? "$HOME" }:
+    concatMapStringsSep "\n" (ext: ''
+      echo "[Pi Module] installing extension: ${ext}..."
+      ${if username == null then
+        ''${piExecutable} install ${escapeShellArg ext} 2>&1''
+      else
+        ''runuser -u ${escapeShellArg username} -- env HOME=${escapeShellArg homeDir} ${piExecutable} install ${escapeShellArg ext} 2>&1''
+      }
+    '') cfg.extensions;
+
   activationText = ''
-    check_and_sync() {
-      local target_file="$1"
-      local source_file="$2"
-      local label="$3"
-      local uname="$4"
-      local gname="$5"
-      if [ -f "$target_file" ]; then
-        if ! cmp -s "$target_file" "$source_file"; then
-          echo "[NIX PROTECTED ERROR]: Found inconsistency in the content of '$target_file' ($label)" >&2
-          echo "Make sure that you already backup before rebuild" >&2
-          exit 1
-        fi
-      else
-        cp "$source_file" "$target_file"
-        if [ -n "$uname" ]; then chown "$uname:$gname" "$target_file"; fi
-        chmod 644 "$target_file"
-      fi
-    }
+    source ${checkAndSync}
 
-    ${
-      if isHM then
-        ''
-          # HOME MANAGER LOGIC
-          HOME_DIR="${config.home.homeDirectory}"
-          mkdir -p "$HOME_DIR/.pi/agent"
+    ${if isHM then
+      ''
+        # HOME MANAGER LOGIC
+        HOME_DIR="${config.home.homeDirectory}"
+        mkdir -p "$HOME_DIR/.pi/agent"
 
-          if ${if cfg.mutableDir then "true" else "false"}; then
-            check_and_sync "$HOME_DIR/.pi/agent/models.json" "${modelsJson}" "models" "" ""
-            check_and_sync "$HOME_DIR/.pi/agent/keybindings.json" "${keybindingsJson}" "keybindings" "" ""
-          else
-            ln -sf "${modelsJson}" "$HOME_DIR/.pi/agent/models.json"
-            ln -sf "${keybindingsJson}" "$HOME_DIR/.pi/agent/keybindings.json"
-          fi
+        ${concatStringsSep "\n" (installFile { homeDir = "$HOME_DIR"; })}
 
-          ${concatMapStringsSep "\n" (ext: ''
-            echo "[Pi Module] installing extension: ${ext}..."
-            ${piPackage}/bin/pi install ${escapeShellArg ext} 2>&1
-          '') cfg.extensions}
-        ''
-      else
-        ''
-          # NIXOS LOGIC
-          ${concatStringsSep "\n" (
-            map (
-              username:
-              let
-                userConfig = config.users.users.${username};
-                homeDir = userConfig.home;
-                modelsFile = "${homeDir}/.pi/agent/models.json";
-                keybindingsFile = "${homeDir}/.pi/agent/keybindings.json";
+        ${installExtensions { piExecutable = "${piPackage}/bin/pi"; }}
+      ''
+    else
+      ''
+        # NIXOS LOGIC
+        ${concatStringsSep "\n" (
+          map (
+            username:
+            let
+              userConfig = config.users.users.${username};
+              homeDir = userConfig.home;
+            in
+            ''
+              install -d -o ${escapeShellArg username} -g ${escapeShellArg userConfig.group} ${escapeShellArg homeDir}/.pi
+              install -d -o ${escapeShellArg username} -g ${escapeShellArg userConfig.group} ${escapeShellArg homeDir}/.pi/agent
 
-                installExtensionCmds = concatMapStringsSep "\n" (ext: ''
-                  echo "[Pi Module] installing extension: ${ext} for user ${username}..."
-                  runuser -u ${escapeShellArg username} -- env HOME=${escapeShellArg homeDir} ${piPackage}/bin/pi install ${escapeShellArg ext} 2>&1
-                '') cfg.extensions;
-              in
-              ''
-                install -d -o ${escapeShellArg username} -g ${escapeShellArg userConfig.group} ${escapeShellArg homeDir}/.pi
-                install -d -o ${escapeShellArg username} -g ${escapeShellArg userConfig.group} ${escapeShellArg homeDir}/.pi/agent
+              ${concatStringsSep "\n" (installFile { inherit homeDir username; group = userConfig.group; })}
 
-                if ${if cfg.mutableDir then "true" else "false"}; then
-                  check_and_sync "${modelsFile}" "${modelsJson}" "models" "${username}" "${userConfig.group}"
-                  check_and_sync "${keybindingsFile}" "${keybindingsJson}" "keybindings" "${username}" "${userConfig.group}"
-                else
-                  ln -sf "${modelsJson}" "${modelsFile}"
-                  chown -h ${username}:${userConfig.group} "${modelsFile}"
-
-                  ln -sf "${keybindingsJson}" "${keybindingsFile}"
-                  chown -h ${username}:${userConfig.group} "${keybindingsFile}"
-                fi
-                ${installExtensionCmds}
-              ''
-            ) cfg.users
-          )}
-        ''
+              ${installExtensions {
+                piExecutable = "${piPackage}/bin/pi";
+                inherit username homeDir;
+              }}
+            ''
+          ) cfg.users
+        )}
+      ''
     }
   '';
 in

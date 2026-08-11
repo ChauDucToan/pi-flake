@@ -1,5 +1,8 @@
 # pi-flake
 
+> ⚠️ **Migration notice — `models`, `keybindings`, `mutableDir` are deprecated.**
+> Use [`agentFiles`](#agentfiles) instead. Old options still work for now but print a deprecation warning on every evaluation. See [Migration](#migration-from-models--keybindings) below.
+
 Nix flake for **[Pi](https://github.com/earendil-works/pi)** – a minimal, terminal-based AI coding agent built with Bun.
 
 This flake provides:
@@ -8,6 +11,14 @@ This flake provides:
 - A **NixOS module** – system-wide configuration with per-user support
 - A **Home Manager module** – per-user declarative configuration
 - An **overlay** – to make `pi` available in your own Nixpkgs
+
+---
+
+## Why `agentFiles`?
+
+The previous design declared `models` and `keybindings` as separate options and always wrote (or symlinked) both files at `~/.pi/agent/`. This broke users who want to manage `models.json` and API keys imperatively (e.g. via the Pi CLI) while still declaring `keybindings` (or `settings`) declaratively. See [issue #32](https://github.com/ChauDucToan/pi-flake/issues/32).
+
+The new `agentFiles` option is an `attrsOf submodule` – each attribute key becomes the filename (`~/.pi/agent/<key>.json`) and you only declare the files you actually want Nix to manage. By default, **no files are written** (no-op on default), so Pi is free to manage its own config files imperatively.
 
 ---
 
@@ -58,20 +69,131 @@ All three approaches (NixOS module, Home Manager module, standalone) share the s
 |--------|------|---------|-------------|
 | `enable` | `bool` | `false` | Enable the Pi Coding Agent module |
 | `package` | `package` | `pkgs.pi` | Pi package to use (useful for overriding) |
-| `mutableDir` | `bool` | `false` | When `true`, config files are copied and editable; when `false` they are read-only symlinks into the Nix store |
+| `agentFiles` | `attrsOf submodule` | `{}` | **Recommended.** Per-file declarative config. See [`agentFiles`](#agentfiles). |
 | `extensions` | `list of string` | `[]` | List of Pi extensions to auto-install on activation |
 | `extraEnv` | `attrs of (string or int)` | `{}` | Extra environment variables passed to the Pi binary |
-| `models` | `attrs` | `{}` | Models configuration (written to `~/.pi/agent/models.json`) |
-| `keybindings` | `attrs of (list of string)` | `{}` | Keybinding overrides (written to `~/.pi/agent/keybindings.json`) |
 | `users` **†** | `list of string` | `[]` | Target users for system-wide configuration |
+
+### Deprecated (still work, prints warning)
+
+| Option | Type | Default | Migration |
+|--------|------|---------|-----------|
+| `models` | `attrs` | `{}` | → `agentFiles.models.value` |
+| `keybindings` | `attrs of (list of string)` | `{}` | → `agentFiles.keybindings.value` |
+| `mutableDir` | `bool` | `false` | → per-file `agentFiles.<name>.mutable` |
 
 **†** Only available in the NixOS module.
 
 ---
 
-## Usage on NixOS
+## `agentFiles`
 
-Add the module to your NixOS configuration:
+`agentFiles` is an `attrsOf submodule` where each entry becomes one file under `~/.pi/agent/`. The attribute key is the filename (without `.json` extension); the `value` field is the JSON content written verbatim.
+
+### Schema
+
+```nix
+agentFiles.<name> = {
+  value = { ... };         # JSON content, written verbatim to ~/.pi/agent/<name>.json
+  mutable = false;         # optional, default = false (true for `keybindings`)
+};
+```
+
+- `value`: free-form `attrs` – paste verbatim from upstream Pi docs (see links below).
+- `mutable`:
+  - `false` (default) → file is a **read-only symlink** into the Nix store.
+  - `true` → file is **copied once** on first activation and then diverges; subsequent rebuilds will fail if the file drifts from the declared config (use `mutable = true` for files you want to tweak at runtime, e.g. `keybindings`).
+  - Default for `keybindings` is `true`; default for everything else is `false`.
+
+### Filenames
+
+The attribute key must match the upstream Pi config file name. Currently documented:
+
+| Key | File | See |
+|---|---|---|
+| `settings` | `~/.pi/agent/settings.json` | [settings.md](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/settings.md) |
+| `keybindings` | `~/.pi/agent/keybindings.json` | [keybindings.md](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/keybindings.md) |
+| `models` | `~/.pi/agent/models.json` | [models.md](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/models.md) |
+
+If you only declare a subset (e.g. just `keybindings`), Pi will manage the other files itself imperatively.
+
+### Example
+
+```nix
+programs.pi-coding-agent = {
+  enable = true;
+
+  agentFiles = {
+    settings = {
+      value = {
+        defaultProvider = "anthropic";
+        defaultModel = "claude-sonnet-4-5-20250929";
+        theme = "dark";
+      };
+    };
+
+    keybindings = {
+      # mutable defaults to true for `keybindings`, so you can rebind at runtime
+      value = {
+        "tui.editor.historyPrevious" = "ctrl+p";
+        "tui.editor.historyNext" = "ctrl+n";
+      };
+    };
+
+    # models intentionally omitted → Pi manages ~/.pi/agent/models.json itself
+    # (e.g. via `pi /login` or its own config command).
+  };
+};
+```
+
+### Disable a file temporarily
+
+To stop Nix from managing a file, **remove the corresponding key from `agentFiles`**. Pi will then take over its own file. Don't comment out the value – that would still write the file.
+
+### Filename validation
+
+The `name` field is `readOnly` and auto-derived from the attribute key. Nix will reject keys that aren't valid filenames at evaluation time.
+
+---
+
+## Migration from `models` / `keybindings`
+
+Old config:
+
+```nix
+mutableDir = true;
+models = {
+  default = { provider = "openai"; model = "gpt-4o"; };
+};
+keybindings = {
+  "mode:main:key:ctrl-p" = [ "goto:chat" ];
+};
+```
+
+New config:
+
+```nix
+agentFiles = {
+  models = {
+    mutable = true;            # was: mutableDir = true
+    value = {
+      default = { provider = "openai"; model = "gpt-4o"; };
+    };
+  };
+  keybindings = {
+    # mutable defaults to true for `keybindings`
+    value = {
+      "mode:main:key:ctrl-p" = [ "goto:chat" ];
+    };
+  };
+};
+```
+
+If both old and new options are set for the same file, `agentFiles` wins.
+
+---
+
+## Usage on NixOS
 
 ```nix
 {
@@ -80,37 +202,24 @@ Add the module to your NixOS configuration:
   services.pi-coding-agent = {
     enable = true;
 
-    # Which users should get Pi configured
     users = [ "alice" "bob" ];
 
-    # Make config files mutable (editable by the user)
-    mutableDir = true;
-
-    # Models configuration (saved as ~/.pi/agent/models.json)
-    models = {
-      default = {
-        provider = "openai";
-        model = "gpt-4o";
+    agentFiles = {
+      settings = {
+        value = {
+          defaultProvider = "anthropic";
+          theme = "dark";
+        };
       };
-      local = {
-        provider = "ollama";
-        model = "codellama";
-        baseUrl = "http://127.0.0.1:11434";
+      keybindings = {
+        value = {
+          "tui.editor.historyPrevious" = "ctrl+p";
+        };
       };
     };
 
-    # Keybinding overrides (saved as ~/.pi/agent/keybindings.json)
-    keybindings = {
-      "mode:main:key:ctrl-p" = [ "goto:chat" ];
-      "mode:chat:key:escape" = [ "goto:main" ];
-    };
+    extensions = [ "github:user/repo" ];
 
-    # Auto-install these Pi extensions
-    extensions = [
-      "github:user/repo"
-    ];
-
-    # Extra environment variables
     extraEnv = {
       PI_THEME = "catppuccin-mocha";
       PI_LOG_LEVEL = "info";
@@ -124,11 +233,9 @@ Add the module to your NixOS configuration:
 On every system activation, the module:
 
 1. Creates `~/.pi/agent/` for each configured user.
-2. Writes (or symlinks) `models.json` and `keybindings.json` inside it.
-3. If `mutableDir = false` (default), the files are **read-only symlinks** into the Nix store. If `mutableDir = true`, the files are copied once; activation fails if an existing file differs from the declared config.
+2. For each entry in `agentFiles`, writes (or symlinks) `~/.pi/agent/<name>.json` per the per-file `mutable` flag.
+3. Files **not** in `agentFiles` are left untouched — Pi manages them itself.
 4. Runs `pi install <ext>` during activation for every extension declared in `extensions`.
-
-> **Note:** `models` and `keybindings` are declarative. If you need local edits, set `mutableDir = true` and update your Nix config before the next rebuild.
 
 ---
 
@@ -141,25 +248,22 @@ On every system activation, the module:
   programs.pi-coding-agent = {
     enable = true;
 
-    mutableDir = true;
-
-    models = {
-      default = {
-        provider = "openai";
-        model = "gpt-4o";
-        apiKey = "$OPENAI_API_KEY"; # reference an env variable
+    agentFiles = {
+      settings = {
+        value = {
+          defaultProvider = "anthropic";
+          theme = "dark";
+        };
+      };
+      keybindings = {
+        value = {
+          "tui.editor.historyPrevious" = "ctrl+p";
+        };
       };
     };
 
-    keybindings = {
-      "mode:main:key:ctrl-p" = [ "goto:chat" ];
-    };
-
     extensions = [ "github:some/extension" ];
-
-    extraEnv = {
-      OPENAI_API_KEY = "sk-...";
-    };
+    extraEnv = { OPENAI_API_KEY = "sk-..."; };
   };
 }
 ```
@@ -182,7 +286,6 @@ If you don't want the modules, just use the overlay to get the `pi` package:
 ```nix
 {
   nixpkgs.overlays = [ pi-flake.overlays.default ];
-
   environment.systemPackages = [ pkgs.pi ];
 }
 ```
