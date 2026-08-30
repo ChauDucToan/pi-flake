@@ -31,6 +31,7 @@ let
   };
 
   checkAndSync = import ./modules/check-and-sync.nix { inherit pkgs; };
+  extensionPath = makeBinPath [ pkgs.gitMinimal ];
 
   piPackage =
     if cfg.extraEnv == { } then
@@ -44,7 +45,13 @@ let
           rm $out/bin/pi
           makeWrapper ${cfg.package}/bin/pi $out/bin/pi \
             ${concatStringsSep " " (
-              mapAttrsToList (k: v: "--set ${k} ${escapeShellArg (toString v)}") cfg.extraEnv
+              mapAttrsToList (
+                k: v:
+                if k == "PATH" then
+                  "--prefix PATH : ${escapeShellArg (toString v)}"
+                else
+                  "--set ${k} ${escapeShellArg (toString v)}"
+              ) cfg.extraEnv
             )}
         '';
       };
@@ -98,11 +105,11 @@ let
   installExtensions =
     { piExecutable, username ? null, homeDir ? "$HOME" }:
     concatMapStringsSep "\n" (ext: ''
-      echo "[Pi Module] installing extension: ${ext}..."
+      echo ${escapeShellArg "[Pi Module] installing extension: ${ext}..."}
       ${if username == null then
-        ''${piExecutable} install ${escapeShellArg ext} 2>&1''
+        ''env "PATH=${extensionPath}:''${PATH:-}" ${piExecutable} install ${escapeShellArg ext} 2>&1''
       else
-        ''runuser -u ${escapeShellArg username} -- env HOME=${escapeShellArg homeDir} ${piExecutable} install ${escapeShellArg ext} 2>&1''
+        ''runuser -u ${escapeShellArg username} -- env HOME=${escapeShellArg homeDir} "PATH=${extensionPath}:''${PATH:-}" ${piExecutable} install ${escapeShellArg ext} 2>&1''
       }
     '') cfg.extensions;
 

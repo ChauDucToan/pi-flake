@@ -85,9 +85,14 @@ jobs:
         if: steps.ver.outputs.skip != 'true'
         run: bash scripts/update-node.bash "v${{ steps.ver.outputs.target }}"
 
-      - name: Check modules
+      - name: Check modules and extension runtime dependencies
         if: steps.ver.outputs.skip != 'true'
-        run: nix build .#checks.x86_64-linux.nixos-module .#checks.x86_64-linux.home-manager-module --no-link
+        run: |
+          nix build --no-link \
+            .#checks.x86_64-linux.nixos-module \
+            .#checks.x86_64-linux.home-manager-module \
+            .#checks.x86_64-linux.package-git-path \
+            .#checks.x86_64-linux.package-src-git-runtime
 
       - name: Build pi-coding-agent (prebuilt)
         if: steps.ver.outputs.skip != 'true'

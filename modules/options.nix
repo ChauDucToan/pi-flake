@@ -125,12 +125,19 @@ in
   extensions = mkOption {
     type = types.listOf types.str;
     default = [ ];
-    description = "Auto extensions";
+    description = ''
+      Pi package sources to install automatically during activation.
+      Supports npm, Git, HTTP(S), SSH, and absolute local path sources accepted by `pi install`.
+    '';
   };
 
   extraEnv = mkOption {
     type = types.attrsOf (types.either types.str types.int);
     default = { };
+    description = ''
+      Extra environment variables passed to Pi. A `PATH` value is prepended
+      so packaged runtime tools remain available.
+    '';
   };
 }
 // (

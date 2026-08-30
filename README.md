@@ -70,8 +70,8 @@ All three approaches (NixOS module, Home Manager module, standalone) share the s
 | `enable` | `bool` | `false` | Enable the Pi Coding Agent module |
 | `package` | `package` | `pkgs.pi` | Pi package to use (useful for overriding) |
 | `agentFiles` | `attrsOf submodule` | `{}` | **Recommended.** Per-file declarative config. See [`agentFiles`](#agentfiles). |
-| `extensions` | `list of string` | `[]` | List of Pi extensions to auto-install on activation |
-| `extraEnv` | `attrs of (string or int)` | `{}` | Extra environment variables passed to the Pi binary |
+| `extensions` | `list of string` | `[]` | [Pi package sources](#extensions) to auto-install on activation |
+| `extraEnv` | `attrs of (string or int)` | `{}` | Extra environment variables passed to the Pi binary; `PATH` is prepended |
 | `users` **†** | `list of string` | `[]` | Target users for system-wide configuration |
 
 ### Deprecated (still work, prints warning)
@@ -193,6 +193,26 @@ If both old and new options are set for the same file, `agentFiles` wins.
 
 ---
 
+## Extensions
+
+The `extensions` option accepts the same package sources as [`pi install`](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/packages.md):
+
+```nix
+extensions = [
+  "npm:@scope/package@1.0.0"
+  "git:github.com/user/repo@v1"
+  "https://github.com/user/another-repo"
+];
+```
+
+Git shorthand requires the `git:` prefix. Protocol URLs such as `https://` and `ssh://` can be used directly. Use absolute paths for module-managed local sources because relative paths depend on the activation process's working directory. Git sources over HTTPS work out of the box; SSH sources additionally require an SSH client and configured credentials.
+
+The packaged Pi binary includes Node.js/npm and Git in its runtime `PATH`. Module activation also supplies Git explicitly, including when `package` is overridden, so Git packages do not depend on the activation shell's ambient `PATH`. If `extraEnv.PATH` is set, its value is prepended rather than replacing the required runtime tools.
+
+> **Security:** Pi packages and extensions execute with your user privileges. Review third-party sources before adding them to your configuration.
+
+---
+
 ## Usage on NixOS
 
 ```nix
@@ -218,7 +238,7 @@ If both old and new options are set for the same file, `agentFiles` wins.
       };
     };
 
-    extensions = [ "github:user/repo" ];
+    extensions = [ "git:github.com/user/repo" ];
 
     extraEnv = {
       PI_THEME = "catppuccin-mocha";
@@ -262,7 +282,7 @@ On every system activation, the module:
       };
     };
 
-    extensions = [ "github:some/extension" ];
+    extensions = [ "git:github.com/some/extension" ];
     extraEnv = { OPENAI_API_KEY = "sk-..."; };
   };
 }
