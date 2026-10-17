@@ -20,18 +20,18 @@ let
     "x86_64-linux" = "bun-linux-x64";
   };
 
-  version = "1.1.0";
+  version = "1.3.0";
 
   src = fetchFromGitHub {
     owner = "earendil-works";
     repo = "pi";
     rev = "v${version}";
-    hash = "sha256-lwjspkMGrW+8Fl/yBEDEFsHZJA57OKOhmVQmi6zfej4=";
+    hash = "sha256-AsutbwnjiwwLkB5tqLW+1GdGZyLmXsU0W+SNdNhJu7U=";
   };
 
   aiData = fetchurl {
     url = "https://registry.npmjs.org/@earendil-works/pi-ai/-/pi-ai-${version}.tgz";
-    hash = "sha256-bKqzPOxXSA7QLFf+N0KKAwp3zCoGYoFLQ1pc+JMq2Ck=";
+    hash = "sha256-U0PhY5vzQ73DNE3zrWwxwFpQtoutB6xrzhCJDUtrimE=";
   };
 
   bunLock = ./package-src.bun.lock;
@@ -68,7 +68,7 @@ let
 
     outputHashMode = "recursive";
     outputHashAlgo = "sha256";
-    outputHash = "sha256-NCBuqb87Sl2QSQebhretrHJo4SbYksKX/uqJ3SPN5fs=";
+    outputHash = "sha256-EujxASzQYdPYdnEqVMMN1q4/oYfNsc76TVG+L8Qx4DE=";
   };
 in
 stdenvNoCC.mkDerivation (finalAttrs: {
