@@ -10,9 +10,15 @@ eachLinuxSystem (
   let
     runtimeTestExtension = "git:https://127.0.0.1:1/pi-flake/test-extension";
     activationTestExtension = "git:github.com/pi-flake/test'$(touch /tmp/pi-flake-unsafe)";
-    activationLogLine =
-      "echo ${lib.escapeShellArg "[Pi Module] installing extension: ${activationTestExtension}..."}";
-    gitPathMarker = "-git-minimal-";
+    # Activation no longer runs `pi install`; it symlinks a Nix-generated
+    # settings.json carrying the sources as `packages`. Pull that store path out
+    # of the script by quoting (a regex capture would drop the string context).
+    extractSettings =
+      text:
+      let
+        matches = builtins.filter (part: lib.hasInfix "-pi-settings.json" part) (lib.splitString "\"" text);
+      in
+      if matches == [] then null else builtins.head matches;
 
     nixosEval = lib.nixosSystem {
       inherit system;
@@ -57,20 +63,23 @@ eachLinuxSystem (
     nixosActivation = nixosEval.config.system.activationScripts.piCodingAgentConfig.text;
     homeActivation = homeEval.config.home.activation.piCodingAgentConfig.data;
 
+    nixosSettings = extractSettings nixosActivation;
+    homeSettings = extractSettings homeActivation;
+
+    assertionMessage = "activation must declare extensions in settings.json, not run pi install";
+
     nixosInfo =
-      assert lib.hasInfix gitPathMarker nixosActivation;
-      assert lib.hasInfix activationLogLine nixosActivation;
+      assert lib.assertMsg (nixosSettings != null) assertionMessage;
+      assert lib.assertMsg (!lib.hasInfix "/bin/pi install" nixosActivation) assertionMessage;
       builtins.toJSON {
         package = nixosEval.config.services.pi-coding-agent.package.pname;
-        activationHash = builtins.hashString "sha256" nixosActivation;
       };
 
     homeInfo =
-      assert lib.hasInfix gitPathMarker homeActivation;
-      assert lib.hasInfix activationLogLine homeActivation;
+      assert lib.assertMsg (homeSettings != null) assertionMessage;
+      assert lib.assertMsg (!lib.hasInfix "/bin/pi install" homeActivation) assertionMessage;
       builtins.toJSON {
         package = homeEval.config.programs.pi-coding-agent.package.pname;
-        activationHash = builtins.hashString "sha256" homeActivation;
       };
 
     packageGitPathCheck =
@@ -114,13 +123,27 @@ eachLinuxSystem (
       '';
   in
   {
-    nixos-module = pkgs.runCommand "pi-nixos-module-check" { inherit nixosInfo; } ''
-      echo "$nixosInfo" > $out
-    '';
+    nixos-module =
+      pkgs.runCommand "pi-nixos-module-check"
+        {
+          inherit nixosInfo;
+          settingsFile = nixosSettings;
+        }
+        ''
+          grep -F ${lib.escapeShellArg activationTestExtension} "$settingsFile"
+          echo "$nixosInfo" > $out
+        '';
 
-    home-manager-module = pkgs.runCommand "pi-home-manager-module-check" { inherit homeInfo; } ''
-      echo "$homeInfo" > $out
-    '';
+    home-manager-module =
+      pkgs.runCommand "pi-home-manager-module-check"
+        {
+          inherit homeInfo;
+          settingsFile = homeSettings;
+        }
+        ''
+          grep -F ${lib.escapeShellArg activationTestExtension} "$settingsFile"
+          echo "$homeInfo" > $out
+        '';
 
     package-git-path =
       packageGitPathCheck "pi-package-git-path-check" self.packages.${system}.pi-coding-agent;

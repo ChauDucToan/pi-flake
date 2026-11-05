@@ -44,19 +44,6 @@ let
     };
   });
 
-  # Mark a single option as legacy via an assertion in `base-module.nix`.
-  # Returns a `mkOption` declaration whose `apply` accessor would throw,
-  # but more importantly whose definition triggers a clear migration error.
-  # Keeping the declaration (instead of fully removing it) lets the eval
-  # system surface a "you set a deprecated option" message.
-  legacyOption = {
-    description,
-    type ? types.attrs,
-    default ? { },
-  }:
-  mkOption {
-    inherit type description default;
-  };
 in
 {
   enable = mkEnableOption "Pi Coding Agent";
@@ -96,38 +83,15 @@ in
     '';
   };
 
-  # Legacy options (still work, print migration warning in base-module.nix)
-  models = legacyOption {
-    type = types.attrs;
-    description = ''
-      **DEPRECATED.** Use `agentFiles.models` instead. See README.
-    '';
-  };
-
-  # Legacy options (still work, print migration warning in base-module.nix)
-  keybindings = legacyOption {
-    type = types.attrsOf (types.listOf types.str);
-    description = ''
-      **DEPRECATED.** Use `agentFiles.keybindings` instead. See README.
-    '';
-  };
-
-  # Legacy options (still work, print migration warning in base-module.nix)
-  mutableDir = legacyOption {
-    type = types.bool;
-    default = false;
-    description = ''
-      **DEPRECATED.** Set `mutable = true;` per-file on `agentFiles`
-      entries instead.
-    '';
-  };
-
   extensions = mkOption {
     type = types.listOf types.str;
     default = [ ];
     description = ''
-      Pi package sources to install automatically during activation.
-      Supports npm, Git, HTTP(S), SSH, and absolute local path sources accepted by `pi install`.
+      Pi package sources declared as `packages` in the generated
+      `settings.json`. Pi installs them on first start; activation stays
+      offline. Supports npm, Git, HTTP(S), SSH, and absolute local path
+      sources accepted by `pi install`. Merged into `agentFiles.settings`
+      `packages` when both are set.
     '';
   };
 
