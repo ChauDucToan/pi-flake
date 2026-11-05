@@ -18,7 +18,7 @@ eachLinuxSystem (
       let
         matches = builtins.filter (part: lib.hasInfix "-pi-settings.json" part) (lib.splitString "\"" text);
       in
-      if matches == [] then null else builtins.head matches;
+      if matches == [ ] then null else builtins.head matches;
 
     nixosEval = lib.nixosSystem {
       inherit system;
@@ -121,6 +121,53 @@ eachLinuxSystem (
 
         touch $out
       '';
+    # `build:binary` in package.json compiles three entrypoints and disables
+    # bunfig/.env autoloading. Each miss below is silent at build time.
+    packageSrcBuildContractCheck =
+      name: package:
+      pkgs.runCommand name { nativeBuildInputs = [ pkgs.binutils ]; } ''
+        pkg=${package}/lib/pi
+
+        for path in README.md CHANGELOG.md docs examples theme assets export-html; do
+          if [ ! -e "$pkg/$path" ]; then
+            echo "Missing $path in $pkg (Pi's system prompt and UI read it)" >&2
+            exit 1
+          fi
+        done
+
+        # pi-tui resolves native helpers from dirname(execPath)/native/...
+        case ${lib.escapeShellArg pkgs.stdenvNoCC.hostPlatform.system} in
+          *-linux) native=linux-platform-x11.node ;;
+          *-darwin) native=darwin-platform.node ;;
+          *) native= ;;
+        esac
+        if [ -n "$native" ] && [ -z "$(find "$pkg/native" -name "$native" -print -quit)" ]; then
+          echo "Missing pi-tui native helper ($native) under $pkg/native" >&2
+          exit 1
+        fi
+
+        # codemode's worker is resolved from the embedded $bunfs path, so it
+        # only exists when worker.ts was a compile entrypoint. The bare
+        # "extensions/codemode/worker.ts" string is not a marker: config.ts
+        # hardcodes that literal, so grep for the compiled bunfs entry instead.
+        if ! strings "$pkg/pi" | grep -qF '$bunfs/root/extensions/codemode/worker.js'; then
+          echo "codemode worker entrypoint was not compiled into the binary" >&2
+          exit 1
+        fi
+
+        # --no-compile-autoload-bunfig / --no-compile-autoload-dotenv
+        export HOME="$TMPDIR/home"
+        mkdir -p "$HOME" "$TMPDIR/cwd"
+        printf 'preload = ["./does-not-exist.ts"]\n' > "$TMPDIR/cwd/bunfig.toml"
+        printf 'PI_CHECK_LEAKED=1\n' > "$TMPDIR/cwd/.env"
+        cd "$TMPDIR/cwd"
+        if ! version=$(env -u PI_PACKAGE_DIR -u PI_CODING_AGENT_DIR "$pkg/pi" --version 2>&1); then
+          echo "Pi failed to start in a directory with bunfig.toml/.env: $version" >&2
+          exit 1
+        fi
+
+        touch $out
+      '';
   in
   {
     nixos-module =
@@ -146,8 +193,13 @@ eachLinuxSystem (
         '';
 
     package-git-path =
-      packageGitPathCheck "pi-package-git-path-check" self.packages.${system}.pi-coding-agent;
+      packageGitPathCheck "pi-package-git-path-check"
+        self.packages.${system}.pi-coding-agent;
     package-src-git-runtime =
-      packageGitRuntimeCheck "pi-package-src-git-runtime-check" self.packages.${system}.pi-coding-agent-src;
+      packageGitRuntimeCheck "pi-package-src-git-runtime-check"
+        self.packages.${system}.pi-coding-agent-src;
+    package-src-build-contract =
+      packageSrcBuildContractCheck "pi-package-src-build-contract-check"
+        self.packages.${system}.pi-coding-agent-src;
   }
 )

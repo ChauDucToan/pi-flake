@@ -95,12 +95,20 @@ stdenvNoCC.mkDerivation (finalAttrs: {
 
   buildPhase = ''
     runHook preBuild
+    # Keep this in sync with upstream `build:binary` in
+    # packages/coding-agent/package.json. The extra entrypoints and the two
+    # --no-compile-autoload flags are required: codemode's worker is resolved
+    # from an embedded $bunfs path, and autoloaded bunfig.toml/.env from cwd
+    # must not be picked up by the compiled binary.
     bun build \
       --compile \
       --target=${bunTarget.${stdenvNoCC.hostPlatform.system}} \
+      --no-compile-autoload-bunfig \
+      --no-compile-autoload-dotenv \
       --outfile=pi \
       ./packages/coding-agent/src/bun/cli.ts \
-      ./packages/coding-agent/src/utils/image-resize-worker.ts
+      ./packages/coding-agent/src/utils/image-resize-worker.ts \
+      ./packages/coding-agent/src/extensions/codemode/worker.ts
     runHook postBuild
   '';
 
@@ -113,9 +121,17 @@ stdenvNoCC.mkDerivation (finalAttrs: {
 
     install -Dm755 pi $out/lib/pi/pi
     cp node_modules/@silvia-odwyer/photon-node/photon_rs_bg.wasm $out/lib/pi/
+    # pi-tui loads these from `dirname(execPath)/native/<platform>/prebuilds/`
+    # (packages/tui/src/native-module-path.ts). They are optional at runtime,
+    # but their absence silently drops the native clipboard/platform helpers.
+    cp -R node_modules/@earendil-works/pi-tui/native $out/lib/pi/native
 
     cd packages/coding-agent
-    install -Dm644 -t $out/lib/pi/ package.json
+    install -Dm644 -t $out/lib/pi/ package.json README.md CHANGELOG.md
+    # Pi's system prompt points the agent at these three paths
+    # (src/core/system-prompt.ts: getReadmePath/getDocsPath/getExamplesPath),
+    # so a missing directory silently loses the agent's documentation lookup.
+    cp -R docs examples $out/lib/pi/
     install -Dm644 -t $out/lib/pi/assets/ src/modes/interactive/assets/*.png
     install -Dm644 -t $out/lib/pi/theme/ src/modes/interactive/theme/*.json
     install -Dm644 -t $out/lib/pi/export-html/ src/core/export-html/template.*
@@ -124,7 +140,12 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     makeWrapper $out/lib/pi/pi $out/bin/pi \
       --set-default PI_DATA_DIR "$HOME/.local/share/pi" \
       --set-default PI_PACKAGE_DIR "$out/lib/pi" \
-      --prefix PATH : ${lib.makeBinPath [ nodejs gitMinimal ]}
+      --prefix PATH : ${
+        lib.makeBinPath [
+          nodejs
+          gitMinimal
+        ]
+      }
 
     runHook postInstall
   '';

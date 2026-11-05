@@ -6,43 +6,45 @@
 with lib;
 
 let
-  agentFileType = types.submodule ({ name, ... }: {
-    options = {
-      name = mkOption {
-        type = types.str;
-        default = name;
-        description = "Filename (without `.json` extension), auto-derived from the attribute key.";
-        readOnly = true;
-      };
+  agentFileType = types.submodule (
+    { name, ... }: {
+      options = {
+        name = mkOption {
+          type = types.str;
+          default = name;
+          description = "Filename (without `.json` extension), auto-derived from the attribute key.";
+          readOnly = true;
+        };
 
-      # JSON content. Free-form `attrs` so users can paste verbatim from
-      # upstream pi docs (settings.md / keybindings.md / models.md).
-      value = mkOption {
-        type = types.attrs;
-        default = { };
-        description = ''
-          JSON content written verbatim to `~/.pi/agent/<name>.json`.
-          Schema mirrors the corresponding upstream pi config file.
-        '';
-      };
+        # JSON content. Free-form `attrs` so users can paste verbatim from
+        # upstream pi docs (settings.md / keybindings.md / models.md).
+        value = mkOption {
+          type = types.attrs;
+          default = { };
+          description = ''
+            JSON content written verbatim to `~/.pi/agent/<name>.json`.
+            Schema mirrors the corresponding upstream pi config file.
+          '';
+        };
 
-      # Per-file mutable flag.
-      # `true` -> file is copied once and diverges (good for `keybindings`
-      # so users can rebind at runtime).
-      # `false` -> symlink into store (declarative, Nix-managed).
-      # Sensible default: keybindings is the only file where users tweak
-      # interactively.
-      mutable = mkOption {
-        type = types.bool;
-        default = name == "keybindings";
-        description = ''
-          When true, the file is copied once on first activation and then
-          diverges from the Nix store. When false, it is a read-only
-          symlink into the store. Defaults to true only for `keybindings`.
-        '';
+        # Per-file mutable flag.
+        # `true` -> file is copied once and diverges (good for `keybindings`
+        # so users can rebind at runtime).
+        # `false` -> symlink into store (declarative, Nix-managed).
+        # Sensible default: keybindings is the only file where users tweak
+        # interactively.
+        mutable = mkOption {
+          type = types.bool;
+          default = name == "keybindings";
+          description = ''
+            When true, the file is copied once on first activation and then
+            diverges from the Nix store. When false, it is a read-only
+            symlink into the store. Defaults to true only for `keybindings`.
+          '';
+        };
       };
-    };
-  });
+    }
+  );
 
 in
 {

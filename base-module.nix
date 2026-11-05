@@ -77,7 +77,11 @@ let
   # `mutable` still comes from `agentFiles`; `settings` may be synthesized
   # above and have no entry there.
   installFile =
-    { homeDir, username ? null, group ? null }:
+    {
+      homeDir,
+      username ? null,
+      group ? null,
+    }:
     mapAttrsToList (
       filename: _:
       let
@@ -86,45 +90,53 @@ let
         target = "${homeDir}/.pi/agent/${filename}.json";
       in
       if mutable then
-        ''check_and_sync "${target}" "${src}" "${filename}" ${optionalString (username != null) "${username} ${group}"}''
+        ''check_and_sync "${target}" "${src}" "${filename}" ${
+          optionalString (username != null) "${username} ${group}"
+        }''
       else
-        ''ln -sf "${src}" "${target}"
-          ${optionalString (username != null) "chown -h ${username}:${group} ${escapeShellArg target}"}''
+        ''
+          ln -sf "${src}" "${target}"
+                    ${optionalString (
+                      username != null
+                    ) "chown -h ${username}:${group} ${escapeShellArg target}"}''
     ) fileValues;
 
   activationText = ''
     source ${checkAndSync}
 
-    ${if isHM then
-      ''
-        # HOME MANAGER LOGIC
-        HOME_DIR="${config.home.homeDirectory}"
-        mkdir -p "$HOME_DIR/.pi/agent"
+    ${
+      if isHM then
+        ''
+          # HOME MANAGER LOGIC
+          HOME_DIR="${config.home.homeDirectory}"
+          mkdir -p "$HOME_DIR/.pi/agent"
 
-        ${concatStringsSep "\n" (installFile { homeDir = "$HOME_DIR"; })}
-      ''
-    else
-      ''
-        # NIXOS LOGIC
-        ${concatStringsSep "\n" (
-          map (
-            username:
-            let
-              userConfig = config.users.users.${username};
-              homeDir = userConfig.home;
-            in
-            ''
-              install -d -o ${escapeShellArg username} -g ${escapeShellArg userConfig.group} ${escapeShellArg homeDir}/.pi
-              install -d -o ${escapeShellArg username} -g ${escapeShellArg userConfig.group} ${escapeShellArg homeDir}/.pi/agent
+          ${concatStringsSep "\n" (installFile {
+            homeDir = "$HOME_DIR";
+          })}
+        ''
+      else
+        ''
+          # NIXOS LOGIC
+          ${concatStringsSep "\n" (
+            map (
+              username:
+              let
+                userConfig = config.users.users.${username};
+                homeDir = userConfig.home;
+              in
+              ''
+                install -d -o ${escapeShellArg username} -g ${escapeShellArg userConfig.group} ${escapeShellArg homeDir}/.pi
+                install -d -o ${escapeShellArg username} -g ${escapeShellArg userConfig.group} ${escapeShellArg homeDir}/.pi/agent
 
-              ${concatStringsSep "\n" (installFile {
-                inherit homeDir username;
-                group = userConfig.group;
-              })}
-            ''
-          ) cfg.users
-        )}
-      ''
+                ${concatStringsSep "\n" (installFile {
+                  inherit homeDir username;
+                  group = userConfig.group;
+                })}
+              ''
+            ) cfg.users
+          )}
+        ''
     }
   '';
 in
