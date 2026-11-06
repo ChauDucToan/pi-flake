@@ -1,10 +1,12 @@
 {
   lib,
-  stdenv,
   stdenvNoCC,
   makeWrapper,
+  patchelf,
   fetchurl,
   gitMinimal,
+  glibc,
+  libxcb,
   nodejs,
 }:
 
@@ -31,6 +33,11 @@ let
   };
 
   system = stdenvNoCC.hostPlatform.system;
+
+  runtimePath = lib.makeBinPath [
+    nodejs
+    gitMinimal
+  ];
 in
 stdenvNoCC.mkDerivation {
   pname = "pi-coding-agent";
@@ -38,7 +45,10 @@ stdenvNoCC.mkDerivation {
 
   src = fetchurl srcs.${system};
 
-  nativeBuildInputs = [ makeWrapper ];
+  nativeBuildInputs = [
+    makeWrapper
+    patchelf
+  ];
 
   dontConfigure = true;
   dontBuild = true;
@@ -51,17 +61,38 @@ stdenvNoCC.mkDerivation {
     chmod +x $out/lib/pi/pi
 
     makeWrapper $out/lib/pi/pi $out/bin/pi \
-      --set-default PI_DATA_DIR "$HOME/.local/share/pi" \
       --set-default PI_PACKAGE_DIR "$out/lib/pi" \
-      --prefix PATH : ${lib.makeBinPath [ nodejs gitMinimal ]}
+      --prefix PATH : ${runtimePath}
 
     runHook postInstall
   '';
 
-  postFixup = lib.optionalString stdenv.hostPlatform.isLinux ''
-    wrapProgram $out/bin/pi \
-      --prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath [ stdenv.cc.cc.lib ]}
+  # The main `pi` executable is a Bun self-extracting binary. Everything is
+  # mandatory here and order matters:
+  #  - the interpreter must be patched, or the binary cannot start inside a Nix
+  #    build sandbox (no /lib64/ld-linux-x86-64.so.2 there);
+  #  - autoPatchelfHook must NOT be used: besides the interpreter it also adds an
+  #    RPATH, and rewriting that part of the ELF shifts the offsets of the
+  #    embedded filesystem, after which `--version` reports the wrong release;
+  #  - pi-tui's prebuilt helper needs its own RPATH for a distro libxcb, and the
+  #    native tree also ships Windows (PE) and macOS (Mach-O) builds that
+  #    patchelf rejects, so only ELF helpers are patched.
+  postFixup = lib.optionalString stdenvNoCC.hostPlatform.isLinux ''
+        patchelf --set-interpreter ${glibc}/lib/ld-linux-x86-64.so.2 \
+          $out/lib/pi/pi
+
+        while IFS= read -r helper; do
+          if [ "$(head -c4 "$helper" | od -An -c | tr -d ' \n')" = "177ELF" ]; then
+            patchelf --set-rpath ${lib.makeLibraryPath [ libxcb ]} "$helper"
+          fi
+        done <<EOF
+    $(find $out/lib/pi/native -name '*.node' -type f)
+    EOF
   '';
+
+  # Exposed so a caller that wraps the ELF directly (e.g. the module's
+  # `extraEnv` wrapper) keeps the same runtime tools on PATH.
+  passthru.runtimePath = runtimePath;
 
   meta = {
     description = "Terminal-based AI coding agent (pre-built)";

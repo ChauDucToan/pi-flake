@@ -1,8 +1,5 @@
 # pi-flake
 
-> ⚠️ **Migration notice — `models`, `keybindings`, `mutableDir` are deprecated.**
-> Use [`agentFiles`](#agentfiles) instead. Old options still work for now but print a deprecation warning on every evaluation. See [Migration](#migration-from-models--keybindings) below.
-
 Nix flake for **[Pi](https://github.com/earendil-works/pi)** – a minimal, terminal-based AI coding agent built with Bun.
 
 This flake provides:
@@ -16,9 +13,9 @@ This flake provides:
 
 ## Why `agentFiles`?
 
-The previous design declared `models` and `keybindings` as separate options and always wrote (or symlinked) both files at `~/.pi/agent/`. This broke users who want to manage `models.json` and API keys imperatively (e.g. via the Pi CLI) while still declaring `keybindings` (or `settings`) declaratively. See [issue #32](https://github.com/ChauDucToan/pi-flake/issues/32).
+Earlier versions declared `models` and `keybindings` as separate options and always wrote (or symlinked) both files at `~/.pi/agent/`. That broke users who want to manage `models.json` and API keys imperatively (e.g. via the Pi CLI) while still declaring `keybindings` (or `settings`) declaratively. See [issue #32](https://github.com/ChauDucToan/pi-flake/issues/32). Those options are removed; `agentFiles` is the only way to declare config files.
 
-The new `agentFiles` option is an `attrsOf submodule` – each attribute key becomes the filename (`~/.pi/agent/<key>.json`) and you only declare the files you actually want Nix to manage. By default, **no files are written** (no-op on default), so Pi is free to manage its own config files imperatively.
+`agentFiles` is an `attrsOf submodule` – each attribute key becomes the filename (`~/.pi/agent/<key>.json`) and you only declare the files you actually want Nix to manage. By default, **no files are written** (no-op on default), so Pi is free to manage its own config files imperatively.
 
 ---
 
@@ -70,17 +67,9 @@ All three approaches (NixOS module, Home Manager module, standalone) share the s
 | `enable` | `bool` | `false` | Enable the Pi Coding Agent module |
 | `package` | `package` | `pkgs.pi` | Pi package to use (useful for overriding) |
 | `agentFiles` | `attrsOf submodule` | `{}` | **Recommended.** Per-file declarative config. See [`agentFiles`](#agentfiles). |
-| `extensions` | `list of string` | `[]` | [Pi package sources](#extensions) to auto-install on activation |
+| `extensions` | `list of string` | `[]` | [Pi package sources](#extensions), declared in the generated `settings.json` |
 | `extraEnv` | `attrs of (string or int)` | `{}` | Extra environment variables passed to the Pi binary; `PATH` is prepended |
 | `users` **†** | `list of string` | `[]` | Target users for system-wide configuration |
-
-### Deprecated (still work, prints warning)
-
-| Option | Type | Default | Migration |
-|--------|------|---------|-----------|
-| `models` | `attrs` | `{}` | → `agentFiles.models.value` |
-| `keybindings` | `attrs of (list of string)` | `{}` | → `agentFiles.keybindings.value` |
-| `mutableDir` | `bool` | `false` | → per-file `agentFiles.<name>.mutable` |
 
 **†** Only available in the NixOS module.
 
@@ -156,43 +145,6 @@ The `name` field is `readOnly` and auto-derived from the attribute key. Nix will
 
 ---
 
-## Migration from `models` / `keybindings`
-
-Old config:
-
-```nix
-mutableDir = true;
-models = {
-  default = { provider = "openai"; model = "gpt-4o"; };
-};
-keybindings = {
-  "mode:main:key:ctrl-p" = [ "goto:chat" ];
-};
-```
-
-New config:
-
-```nix
-agentFiles = {
-  models = {
-    mutable = true;            # was: mutableDir = true
-    value = {
-      default = { provider = "openai"; model = "gpt-4o"; };
-    };
-  };
-  keybindings = {
-    # mutable defaults to true for `keybindings`
-    value = {
-      "mode:main:key:ctrl-p" = [ "goto:chat" ];
-    };
-  };
-};
-```
-
-If both old and new options are set for the same file, `agentFiles` wins.
-
----
-
 ## Extensions
 
 The `extensions` option accepts the same package sources as [`pi install`](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/packages.md):
@@ -205,9 +157,11 @@ extensions = [
 ];
 ```
 
-Git shorthand requires the `git:` prefix. Protocol URLs such as `https://` and `ssh://` can be used directly. Use absolute paths for module-managed local sources because relative paths depend on the activation process's working directory. Git sources over HTTPS work out of the box; SSH sources additionally require an SSH client and configured credentials.
+Git shorthand requires the `git:` prefix. Protocol URLs such as `https://` and `ssh://` can be used directly. Use absolute paths for local sources. Git sources over HTTPS work out of the box; SSH sources additionally require an SSH client and configured credentials.
 
-The packaged Pi binary includes Node.js/npm and Git in its runtime `PATH`. Module activation also supplies Git explicitly, including when `package` is overridden, so Git packages do not depend on the activation shell's ambient `PATH`. If `extraEnv.PATH` is set, its value is prepended rather than replacing the required runtime tools.
+Declared sources land in `packages` of the generated `~/.pi/agent/settings.json`. Pi installs them on first start, not during activation, so activation stays offline and a Nix-owned `settings.json` is never written by Pi at build time. If you also declare `agentFiles.settings`, its own `packages` are merged with `extensions` (duplicates removed).
+
+The packaged Pi binary includes Node.js/npm and Git in its runtime `PATH`. If `extraEnv.PATH` is set, its value is prepended rather than replacing the required runtime tools.
 
 > **Security:** Pi packages and extensions execute with your user privileges. Review third-party sources before adding them to your configuration.
 
@@ -255,7 +209,7 @@ On every system activation, the module:
 1. Creates `~/.pi/agent/` for each configured user.
 2. For each entry in `agentFiles`, writes (or symlinks) `~/.pi/agent/<name>.json` per the per-file `mutable` flag.
 3. Files **not** in `agentFiles` are left untouched — Pi manages them itself.
-4. Runs `pi install <ext>` during activation for every extension declared in `extensions`.
+4. Leaves package installation to Pi: sources from `extensions` are written into `packages` in `settings.json` and installed by Pi on first start.
 
 ---
 

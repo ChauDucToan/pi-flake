@@ -31,125 +31,111 @@ let
   };
 
   checkAndSync = import ./modules/check-and-sync.nix { inherit pkgs; };
-  extensionPath = makeBinPath [ pkgs.gitMinimal ];
 
+  # `extraEnv` needs its own wrapper. Wrap the ELF directly instead of the
+  # package's wrapper: `$out` here has no `lib/pi`, so PI_PACKAGE_DIR must point
+  # at the base package, and the base wrapper's PATH is re-applied explicitly.
   piPackage =
     if cfg.extraEnv == { } then
       cfg.package
     else
-      pkgs.symlinkJoin {
-        name = "pi-wrapped";
-        paths = [ cfg.package ];
-        nativeBuildInputs = [ pkgs.makeWrapper ];
-        postBuild = ''
-          rm $out/bin/pi
-          makeWrapper ${cfg.package}/bin/pi $out/bin/pi \
-            ${concatStringsSep " " (
-              mapAttrsToList (
-                k: v:
-                if k == "PATH" then
-                  "--prefix PATH : ${escapeShellArg (toString v)}"
-                else
-                  "--set ${k} ${escapeShellArg (toString v)}"
-              ) cfg.extraEnv
-            )}
-        '';
-      };
+      pkgs.runCommandLocal "pi-wrapped" { nativeBuildInputs = [ pkgs.makeWrapper ]; } ''
+        makeWrapper ${cfg.package}/lib/pi/pi $out/bin/pi \
+          --set-default PI_PACKAGE_DIR "${cfg.package}/lib/pi" \
+          --prefix PATH : ${cfg.package.runtimePath} \
+          ${concatStringsSep " " (
+            mapAttrsToList (
+              k: v:
+              if k == "PATH" then
+                "--prefix PATH : ${escapeShellArg (toString v)}"
+              else
+                "--set ${k} ${escapeShellArg (toString v)}"
+            ) cfg.extraEnv
+          )}
+      '';
 
-  # `agentFiles` (new, recommended) wins over the legacy options.
-  # Legacy options still work but print a migration warning.
-  effectiveAgentFiles =
-    let
-      legacy = optionalAttrs (cfg.models != { }) {
-        models = {
-          value = cfg.models;
-          mutable = cfg.mutableDir;
-        };
-      } // optionalAttrs (cfg.keybindings != { }) {
-        keybindings = {
-          value = cfg.keybindings;
-          mutable = cfg.mutableDir;
-        };
+  # `extensions` is not installed during activation: that needs network and
+  # would write into a Nix-owned settings.json. Declare them as `packages` in
+  # the generated settings.json instead; Pi installs them on first start.
+  fileValues =
+    mapAttrs (_: entry: entry.value) cfg.agentFiles
+    // optionalAttrs (cfg.extensions != [ ]) {
+      settings = (cfg.agentFiles.settings.value or { }) // {
+        packages = unique ((cfg.agentFiles.settings.value.packages or [ ]) ++ cfg.extensions);
       };
-    in
-    warnIf (cfg.models != { })
-      "[pi] `models` is deprecated. Set `agentFiles.models.value` instead."
-      (warnIf (cfg.keybindings != { })
-        "[pi] `keybindings` is deprecated. Set `agentFiles.keybindings.value` instead."
-        (warnIf cfg.mutableDir
-          "[pi] `mutableDir` is deprecated. Set `agentFiles.<name>.mutable` per file instead."
-          (legacy // cfg.agentFiles)));
+    };
 
   # Each declared file → a derivation in the Nix store.
-  fileDerivations = mapAttrs (filename: entry:
-    pkgs.writeText "pi-${filename}.json" (builtins.toJSON entry.value)
-  ) effectiveAgentFiles;
+  fileDerivations = mapAttrs (
+    filename: value: pkgs.writeText "pi-${filename}.json" (builtins.toJSON value)
+  ) fileValues;
 
   # Per-file install command for one target directory.
   # mutable -> check_and_sync (copy once, then diverge, error on drift).
   # immutable -> symlink into store.
+  # `mutable` still comes from `agentFiles`; `settings` may be synthesized
+  # above and have no entry there.
   installFile =
-    { homeDir, username ? null, group ? null }:
-    mapAttrsToList (filename: entry:
+    {
+      homeDir,
+      username ? null,
+      group ? null,
+    }:
+    mapAttrsToList (
+      filename: _:
       let
         src = fileDerivations.${filename};
+        mutable = (cfg.agentFiles.${filename} or { }).mutable or false;
         target = "${homeDir}/.pi/agent/${filename}.json";
       in
-      if entry.mutable then
-        ''check_and_sync "${target}" "${src}" "${filename}" ${optionalString (username != null) "${username} ${group}"}''
+      if mutable then
+        ''check_and_sync "${target}" "${src}" "${filename}" ${
+          optionalString (username != null) "${username} ${group}"
+        }''
       else
-        ''ln -sf "${src}" "${target}"
-          ${optionalString (username != null) "chown -h ${username}:${group} ${escapeShellArg target}"}''
-    ) effectiveAgentFiles;
-
-  installExtensions =
-    { piExecutable, username ? null, homeDir ? "$HOME" }:
-    concatMapStringsSep "\n" (ext: ''
-      echo ${escapeShellArg "[Pi Module] installing extension: ${ext}..."}
-      ${if username == null then
-        ''env "PATH=${extensionPath}:''${PATH:-}" ${piExecutable} install ${escapeShellArg ext} 2>&1''
-      else
-        ''runuser -u ${escapeShellArg username} -- env HOME=${escapeShellArg homeDir} "PATH=${extensionPath}:''${PATH:-}" ${piExecutable} install ${escapeShellArg ext} 2>&1''
-      }
-    '') cfg.extensions;
+        ''
+          ln -sf "${src}" "${target}"
+                    ${optionalString (
+                      username != null
+                    ) "chown -h ${username}:${group} ${escapeShellArg target}"}''
+    ) fileValues;
 
   activationText = ''
     source ${checkAndSync}
 
-    ${if isHM then
-      ''
-        # HOME MANAGER LOGIC
-        HOME_DIR="${config.home.homeDirectory}"
-        mkdir -p "$HOME_DIR/.pi/agent"
+    ${
+      if isHM then
+        ''
+          # HOME MANAGER LOGIC
+          HOME_DIR="${config.home.homeDirectory}"
+          mkdir -p "$HOME_DIR/.pi/agent"
 
-        ${concatStringsSep "\n" (installFile { homeDir = "$HOME_DIR"; })}
+          ${concatStringsSep "\n" (installFile {
+            homeDir = "$HOME_DIR";
+          })}
+        ''
+      else
+        ''
+          # NIXOS LOGIC
+          ${concatStringsSep "\n" (
+            map (
+              username:
+              let
+                userConfig = config.users.users.${username};
+                homeDir = userConfig.home;
+              in
+              ''
+                install -d -o ${escapeShellArg username} -g ${escapeShellArg userConfig.group} ${escapeShellArg homeDir}/.pi
+                install -d -o ${escapeShellArg username} -g ${escapeShellArg userConfig.group} ${escapeShellArg homeDir}/.pi/agent
 
-        ${installExtensions { piExecutable = "${piPackage}/bin/pi"; }}
-      ''
-    else
-      ''
-        # NIXOS LOGIC
-        ${concatStringsSep "\n" (
-          map (
-            username:
-            let
-              userConfig = config.users.users.${username};
-              homeDir = userConfig.home;
-            in
-            ''
-              install -d -o ${escapeShellArg username} -g ${escapeShellArg userConfig.group} ${escapeShellArg homeDir}/.pi
-              install -d -o ${escapeShellArg username} -g ${escapeShellArg userConfig.group} ${escapeShellArg homeDir}/.pi/agent
-
-              ${concatStringsSep "\n" (installFile { inherit homeDir username; group = userConfig.group; })}
-
-              ${installExtensions {
-                piExecutable = "${piPackage}/bin/pi";
-                inherit username homeDir;
-              }}
-            ''
-          ) cfg.users
-        )}
-      ''
+                ${concatStringsSep "\n" (installFile {
+                  inherit homeDir username;
+                  group = userConfig.group;
+                })}
+              ''
+            ) cfg.users
+          )}
+        ''
     }
   '';
 in
