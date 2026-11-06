@@ -32,28 +32,27 @@ let
 
   checkAndSync = import ./modules/check-and-sync.nix { inherit pkgs; };
 
+  # `extraEnv` needs its own wrapper. Wrap the ELF directly instead of the
+  # package's wrapper: `$out` here has no `lib/pi`, so PI_PACKAGE_DIR must point
+  # at the base package, and the base wrapper's PATH is re-applied explicitly.
   piPackage =
     if cfg.extraEnv == { } then
       cfg.package
     else
-      pkgs.symlinkJoin {
-        name = "pi-wrapped";
-        paths = [ cfg.package ];
-        nativeBuildInputs = [ pkgs.makeWrapper ];
-        postBuild = ''
-          rm $out/bin/pi
-          makeWrapper ${cfg.package}/bin/pi $out/bin/pi \
-            ${concatStringsSep " " (
-              mapAttrsToList (
-                k: v:
-                if k == "PATH" then
-                  "--prefix PATH : ${escapeShellArg (toString v)}"
-                else
-                  "--set ${k} ${escapeShellArg (toString v)}"
-              ) cfg.extraEnv
-            )}
-        '';
-      };
+      pkgs.runCommandLocal "pi-wrapped" { nativeBuildInputs = [ pkgs.makeWrapper ]; } ''
+        makeWrapper ${cfg.package}/lib/pi/pi $out/bin/pi \
+          --set-default PI_PACKAGE_DIR "${cfg.package}/lib/pi" \
+          --prefix PATH : ${cfg.package.runtimePath} \
+          ${concatStringsSep " " (
+            mapAttrsToList (
+              k: v:
+              if k == "PATH" then
+                "--prefix PATH : ${escapeShellArg (toString v)}"
+              else
+                "--set ${k} ${escapeShellArg (toString v)}"
+            ) cfg.extraEnv
+          )}
+      '';
 
   # `extensions` is not installed during activation: that needs network and
   # would write into a Nix-owned settings.json. Declare them as `packages` in

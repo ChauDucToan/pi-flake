@@ -103,6 +103,9 @@ in
     description = ''
       Extra environment variables passed to Pi. A `PATH` value is prepended
       so packaged runtime tools remain available.
+
+      Values are baked into the generated wrapper, which lives in the
+      world-readable Nix store, so do not put credentials here.
     '';
   };
 }
